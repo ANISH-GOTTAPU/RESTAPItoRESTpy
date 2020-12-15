@@ -1313,18 +1313,42 @@ class Connect:
                              valueList:   data needs to be in a [list]:  data={'values': [list]}
                              counter:     data={'start': value, 'direction': increment|decrement, 'step': value}
         """
-        if multivalueType == 'counter':
-            # Examples: macAddress = {'start': '00:01:01:00:00:01', 'direction': 'increment', 'step': '00:00:00:00:00:01'}
-            #          data=macAddress)
-            self.patch(self.httpHeader+multivalueUrl+'/counter', data=data)
+        # if multivalueType == 'counter':
+        #     # Examples: macAddress = {'start': '00:01:01:00:00:01', 'direction': 'increment', 'step': '00:00:00:00:00:01'}
+        #     #          data=macAddress)
+        #     self.patch(self.httpHeader+multivalueUrl+'/counter', data=data)
 
-        if multivalueType == 'singleValue':
-            # data={'value': value}
-            self.patch(self.httpHeader+multivalueUrl+'/singleValue', data=data)
+        # if multivalueType == 'singleValue':
+        #     # data={'value': value}
+        #     self.patch(self.httpHeader+multivalueUrl+'/singleValue', data=data)
 
-        if multivalueType == 'valueList':
-            # data={'values': ['item1', 'item2']}
-            self.patch(self.httpHeader+multivalueUrl+'/valueList', data=data)
+        # if multivalueType == 'valueList':
+        #     # data={'values': ['item1', 'item2']}
+        #     self.patch(self.httpHeader+multivalueUrl+'/valueList', data=data)
+        '''
+        RestPy implementation
+        '''
+        if multivalueType.lower() == "counter":
+            if data['direction'] == "increment":
+                multivalueUrl.Increment(start_value=data['start'], step_value=data['step'])
+            if data['direction'] == "decrement":
+                multivalueUrl.Decrement(start_value=data['start'], step_value=data['step'])
+        elif multivalueType.lower() == "singlevalue":
+            multivalueUrl.Single(data['value'])
+        elif multivalueType.lower() == "valuelist":
+            multivalueUrl.ValueList(data['values'])
+        elif multivalueType.lower() == "randomrange":
+            multivalueUrl.RandomRange(min_value=data['min_value'], max_value=data['max_value'], step_value=data['step_value'], seed=data['seed'])
+        elif multivalueType.lower() == "custom":
+            multivalueUrl.Custom(start_value=data['start_value'], step_value=data['step_value'], increments=data['increments'])
+        elif multivalueType.lower() == "alternate":
+            multivalueUrl.Alternate(data['alternating_value'])
+        elif multivalueType.lower() == "distributed":
+            multivalueUrl.Distributed(algorithm=data['algorithm'], mode=data['mode'], values=data['values'])
+        elif multivalueType.lower() == "randommask":
+            multivalueUrl.RandomMask(fixed_value=data['fixed_value'], mask_value=data['mask_value'], seed=data['seed'], count=data['count'])
+        elif multivalueType.lower() == "string":
+            multivalueUrl.String(string_pattern=data['string_pattern'])
 
     def getMultivalueValues(self, multivalueObj, silentMode=False):
         """
@@ -1338,17 +1362,21 @@ class Connect:
         Requirements
            self.waitForComplete()
         """
-        response = self.get(self.httpHeader+multivalueObj+'?includes=count', silentMode=silentMode)
-        count = response.json()['count']
-        if silentMode == False:
-            self.logInfo('getMultivalueValues: {0} Count={1}'.format(multivalueObj, count))
-        data = {'arg1': multivalueObj,
-                'arg2': 0,
-                'arg3': count
-                }
-        response = self.post(self.sessionUrl+'/multivalue/operations/getValues', data=data, silentMode=silentMode)
-        self.waitForComplete(response, self.sessionUrl+'/operations/multivalue/getValues'+response.json()['id'])
-        return response.json()['result']
+        # response = self.get(self.httpHeader+multivalueObj+'?includes=count', silentMode=silentMode)
+        # count = response.json()['count']
+        # if silentMode == False:
+        #     self.logInfo('getMultivalueValues: {0} Count={1}'.format(multivalueObj, count))
+        # data = {'arg1': multivalueObj,
+        #         'arg2': 0,
+        #         'arg3': count
+        #         }
+        # response = self.post(self.sessionUrl+'/multivalue/operations/getValues', data=data, silentMode=silentMode)
+        # self.waitForComplete(response, self.sessionUrl+'/operations/multivalue/getValues'+response.json()['id'])
+        # return response.json()['result']
+        '''
+        RestPy implementation
+        '''
+        return multivalueObj.Values
 
     def getObjAttributeValue(self, obj, attribute):
         """

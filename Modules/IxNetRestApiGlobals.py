@@ -1,6 +1,5 @@
-import re
-
 from IxNetRestApiProtocol import Protocol
+
 
 class Globals(object):
     def __init__(self, ixnObj=None):
@@ -9,6 +8,7 @@ class Globals(object):
            ixnObj: <str>: The main connection object.
         """
         self.ixnObj = ixnObj
+        self.ixNetwork = ixnObj.ixNetwork
         self.protocolObj = Protocol(ixnObj)
 
     def dhcpV4ClientStartStopRate(self, endpoint='startRate', **kwargs):
@@ -35,16 +35,28 @@ class Globals(object):
                                                )
 
         """
-        restApi = '/globals/topology/dhcpv4client/{0}?links=true'.format(endpoint)
+        # restApi = '/globals/topology/dhcpv4client/{0}?links=true'.format(endpoint)
+        #
+        # response = self.ixnObj.get(self.ixnObj.sessionUrl + restApi)
+        # for key,value in response.json().items():
+        #     if key != 'links':
+        #         if bool(re.search('multivalue', str(value))) == True:
+        #             if key in kwargs:
+        #                 multiValue = response.json()[key]
+        #                 self.ixnObj.patch(self.ixnObj.httpHeader+multiValue+"/singleValue",
+        #                 data={'value': kwargs[key]})
+        #         else:
+        #             if key in kwargs:
+        #                 self.ixnObj.patch(self.ixnObj.sessionUrl + restApi, data={key: kwargs[key]})
 
-        response = self.ixnObj.get(self.ixnObj.sessionUrl + restApi)
-        for key,value in response.json().items():
-            if key != 'links':
-                if bool(re.search('multivalue', str(value))) == True:
-                    if key in kwargs:
-                        multiValue = response.json()[key]
-                        self.ixnObj.patch(self.ixnObj.httpHeader+multiValue+"/singleValue", data={'value': kwargs[key]})
-                else:
-                    if key in kwargs:
-                        self.ixnObj.patch(self.ixnObj.sessionUrl + restApi, data={key: kwargs[key]})
-
+        if endpoint == 'startRate':
+            rateObj = self.ixNetwork.Globals.Topology.Dhcpv4client.StartRate
+        if endpoint == 'stopRate':
+            rateObj = self.ixNetwork.Globals.Topology.Dhcpv4client.StopRate
+        for key, value in kwargs.items():
+            key = key[0:1].capitalize() + key[1:]
+            try:
+                eval("rateObj." + key + ".Single(value)")
+            except:
+                # eval("isisObj." + "update(" + key + "=value")
+                setattr(rateObj, key, value)
