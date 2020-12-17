@@ -2214,10 +2214,7 @@ class Protocol(object):
         Syntax
             POST: /api/v1/sessions/{id}/ixnetwork/operations/startallprotocols
         """
-        url = self.ixnObj.sessionUrl+'/operations/startallprotocols'
-        response = self.ixnObj.post(url)
-        self.ixnObj.waitForComplete(response, url+'/'+response.json()['id'])
-        self.verifyDeviceGroupStatus()
+        self.ixNetwork.StartAllProtocols()
 
     def stopAllProtocols(self):
         """
@@ -2227,9 +2224,7 @@ class Protocol(object):
         Syntax
             POST: /api/v1/sessions/{id}/ixnetwork/operations/stopallprotocols
         """
-        url = self.ixnObj.sessionUrl+'/operations/stopallprotocols'
-        response = self.ixnObj.post(url, data={'arg1': 'sync'})
-        self.ixnObj.waitForComplete(response, url+'/'+response.json()['id'])
+        self.stopAllProtocols()
 
     def startProtocol(self, protocolObj):
         """
@@ -2243,9 +2238,7 @@ class Protocol(object):
             POST: /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1/bgpIpv4Peer/1/operations/start
             DATA: {['arg1': [/api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1/bgpIpv4Peer/1']}
         """
-        url = self.ixnObj.httpHeader+protocolObj+'/operations/start'
-        response = self.ixnObj.post(url, data={'arg1': [protocolObj]})
-        self.ixnObj.waitForComplete(response, url+'/'+response.json()['id'])
+        protocolObj.Start()
 
     def stopProtocol(self, protocolObj):
         """
@@ -2259,9 +2252,7 @@ class Protocol(object):
             POST: /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1/bgpIpv4Peer/1/operations/stop
             DATA: {['arg1': [/api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1/bgpIpv4Peer/1']}
         """
-        url = self.ixnObj.httpHeader+protocolObj+'/operations/stop'
-        response = self.ixnObj.post(url, data={'arg1': [protocolObj]})
-        self.ixnObj.waitForComplete(response, url+'/'+response.json()['id'])
+        protocolObj.Stop()
 
     def startTopology(self, topologyObjList='all'):
         """
@@ -2273,22 +2264,9 @@ class Protocol(object):
                              Ex: ['/api/v1/sessions/1/ixnetwork/topology/1']
         """
         if topologyObjList == 'all':
-            queryData = {'from': '/',
-                         'nodes': [{'node': 'topology', 'properties': ['href'], 'where': []}]
-                        }
-
-           # QUERY FOR THE BGP HOST ATTRIBITE OBJECTS
-            queryResponse = self.ixnObj.query(data=queryData)
-            try:
-                topologyList = queryResponse.json()['result'][0]['topology']
-            except IndexError:
-                raise IxNetRestApiException('\nNo Topology Group objects  found')
-
-            topologyObjList = [topology['href'] for topology in topologyList]
-
-        url = self.ixnObj.sessionUrl+'/topology/operations/start'
-        response = self.ixnObj.post(url, data={'arg1': topologyObjList})
-        self.ixnObj.waitForComplete(response, url+'/'+response.json()['id'])
+           self.ixNetwork.Topology.find().Start()
+        else:
+            topologyObjList.Start()
         self.verifyDeviceGroupStatus()
 
     def stopTopology(self, topologyObjList='all'):
@@ -2301,21 +2279,9 @@ class Protocol(object):
                              Ex: ['/api/v1/sessions/1/ixnetwork/topology/1']
         """
         if topologyObjList == 'all':
-            queryData = {'from': '/',
-                         'nodes': [{'node': 'topology', 'properties': ['href'], 'where': []}]
-                        }
-
-           # QUERY FOR THE BGP HOST ATTRIBITE OBJECTS
-            queryResponse = self.ixnObj.query(data=queryData)
-            try:
-                topologyList = queryResponse.json()['result'][0]['topology']
-            except IndexError:
-                raise IxNetRestApiException('\nNo Topology Group objects  found')
-
-            topologyObjList = [topology['href'] for topology in topologyList]
-
-        self.ixnObj.post(self.ixnObj.sessionUrl+'/topology/operations/stop', data={'arg1': topologyObjList})
-        self.ixnObj.waitForComplete(response, url+'/'+response.json()['id'])
+            self.ixNetwork.Topology.find().Stop()
+        else:
+            topologyObjList.Stop()
 
     def startStopDeviceGroup(self, deviceGroupObjList='all', action='start'):
         """
@@ -2329,25 +2295,15 @@ class Protocol(object):
             action: <str>: 'start'|'stop'
         """
         if deviceGroupObjList == 'all':
-            queryData = {'from': '/',
-                         'nodes': [{'node': 'topology', 'properties': [], 'where': []},
-                                   {'node': 'deviceGroup', 'properties': ['href'], 'where': []}]
-                        }
-
-            queryResponse = self.ixnObj.query(data=queryData)
-            try:
-                topologyGroupList = queryResponse.json()['result'][0]['topology']
-            except IndexError:
-                raise IxNetRestApiException('\nNo Device  Group objects  found')
-
-            deviceGroupObjList = []
-            for dg in topologyGroupList:
-                for dgHref in  dg['deviceGroup']:
-                    deviceGroupObjList.append(dgHref['href'])
-
-        url = self.ixnObj.sessionUrl+'/topology/deviceGroup/operations/%s' % action
-        response = self.ixnObj.post(url, data={'arg1': deviceGroupObjList})
-        self.ixnObj.waitForComplete(response, url+'/'+response.json()['id'])
+            if action == 'stop':
+                self.ixNetwork.Topology.find.DeviceGroup.find().Stop()
+            else:
+                self.ixNetwork.Topology.find.DeviceGroup.find().Start()
+        else:
+            if action == 'stop':
+                deviceGroupObjList.Stop()
+            else:
+                deviceGroupObjList.Start()
         time.sleep(3)
 
     def verifyProtocolSessionsNgpf(self, protocolObjList=None, timeout=90):
@@ -2446,39 +2402,10 @@ class Protocol(object):
            timeout: <int>: The timeout value for declaring as failed. Default = 120 seconds.
            silentMode: <bool>: True to not display less on the terminal.  False for debugging purpose.
         """
-        sessionDownList = ['down', 'notStarted']
-        startCounter = 1
-        response = self.ixnObj.get(self.ixnObj.httpHeader+protocol, silentMode=silentMode)
-        protocolActiveMultivalue = response.json()['active']
-        response = self.ixnObj.getMultivalueValues(protocolActiveMultivalue, silentMode=silentMode)
+        global protoNameToRespyObjDict
+        protocolSessionStatus = protoNameToRespyObjDict[protocol].SessionStatus
         self.ixnObj.logInfo('\t%s' % protocol, timestamp=False)
-        self.ixnObj.logInfo('\tProtocol is enabled: %s\n' % response[0], timestamp=False)
-        if response[0] == 'false':
-            return
-
-        for timer in range(startCounter, timeout+1):
-            currentStatus = self.getSessionStatus(protocol)
-            self.ixnObj.logInfo('\n%s' % protocol, timestamp=False)
-            self.ixnObj.logInfo('\tTotal sessions: %d' % len(currentStatus), timestamp=False)
-            totalDownSessions = 0
-            for eachStatus in currentStatus:
-                if eachStatus != 'up':
-                    totalDownSessions += 1
-            self.ixnObj.logInfo('\tTotal sessions Down: %d' % totalDownSessions, timestamp=False)
-            #self.ixnObj.logInfo('\tCurrentStatus: %s' % currentStatus, timestamp=False)
-
-            if timer < timeout and [element for element in sessionDownList if element in currentStatus] == []:
-                self.ixnObj.logInfo('Protocol sessions are all up')
-                startCounter = timer
-                break
-
-            if timer < timeout and [element for element in sessionDownList if element in currentStatus] != []:
-                self.ixnObj.logInfo('\tWait %d/%d seconds' % (timer, timeout), timestamp=False)
-                time.sleep(1)
-                continue
-
-            if timer == timeout and [element for element in sessionDownList if element in currentStatus] != []:
-                raise IxNetRestApiException('\nError: Protocols failed')
+        self.ixnObj.logInfo('\tProtocol is enabled: %s\n' % protocolSessionStatus, timestamp=False)
 
     def verifyAllProtocolSessionsNgpf(self, timeout=120, silentMode=False):
         """
@@ -2500,62 +2427,21 @@ class Protocol(object):
                           'pcc', 'pce', 'pcepBackupPCEs', 'pimV4Interface', 'pimV6Interface', 'ptp', 'rsvpteIf',
                           'rsvpteLsps', 'tag', 'vxlan']
 
-        queryData = {'from': '/',
-                        'nodes': [{'node': 'topology', 'properties': [], 'where': []},
-                                  {'node': 'deviceGroup', 'properties': ['href'], 'where': []}]
-                    }
-        queryResponse = self.ixnObj.query(data=queryData)
-        try:
-            topologyGroupList = queryResponse.json()['result'][0]['topology']
-        except IndexError:
-            raise IxNetRestApiException('\nNo Device Group objects  found')
+        
+        l2ProtocolList = ['isisL3', 'lacp', 'mpls']
+        l3ProtocolList = ['ancp', 'bfdv4Interface', 'bgpIpv4Peer', 'bgpIpv6Peer', 'dhcpv4relayAgent', 'dhcpv6relayAgent',
+                          'geneve', 'greoipv4', 'greoipv6', 'igmpHost', 'igmpQuerier',
+                          'lac', 'ldpBasicRouter', 'ldpBasicRouterV6', 'ldpConnectedInterface', 'ldpv6ConnectedInterface',
+                          'ldpTargetedRouter', 'ldpTargetedRouterV6', 'lns', 'mldHost', 'mldQuerier', 'ptp', 'ipv6sr',
+                          'openFlowController', 'openFlowSwitch', 'ospfv2', 'ospfv3', 'ovsdbcontroller', 'ovsdbserver',
+                          'pcc', 'pce', 'pcepBackupPCEs', 'pimV4Interface', 'pimV6Interface', 'ptp', 'rsvpteIf',
+                          'rsvpteLsps', 'tag', 'vxlan']
 
-        deviceGroupObjList = []
-        for topology in topologyGroupList:
-            for deviceGroup in topology['deviceGroup']:
-                deviceGroup = deviceGroup['href']
-                response = self.ixnObj.get(self.ixnObj.httpHeader+deviceGroup)
-                # Verify if the Device Group is enabled. If not, don't go further.
-                enabledMultivalue = response.json()['enabled']
-                response = self.ixnObj.getMultivalueValues(enabledMultivalue, silentMode=silentMode)
+        for protocol in l2ProtocolList:
+            self.verifyAllProtocolSessionsInternal(protocol)
 
-                self.ixnObj.logInfo('DeviceGroup is enabled: %s'% response)
-                if response[0] == 'false':
-                    continue
-
-                response = self.ixnObj.get(self.ixnObj.httpHeader+deviceGroup+'/ethernet', silentMode=silentMode)
-                match = re.match('/api/v[0-9]+/sessions/[0-9]+/ixnetwork(.*)', deviceGroup)
-                queryData = {'from': match.group(1),
-                             'nodes': [{'node': 'ethernet', 'properties': [], 'where': []}]
-                            }
-                queryResponse = self.ixnObj.query(data=queryData)
-                ethernetIds = queryResponse.json()['result'][0]['ethernet']
-                ethernetList = [ethernet['href'] for ethernet in ethernetIds]
-
-                for ethernet in ethernetList:
-                    # Verify Layer2 first
-                    for protocol in l2ProtocolList:
-                        response = self.ixnObj.get(self.ixnObj.httpHeader+ethernet+'/'+protocol, silentMode=True, ignoreError=True)
-                        if response.json() == [] or 'errors' in response.json():
-                            continue
-                        currentProtocolList = ['%s/%s/%s' % (ethernet, protocol, str(i["id"])) for i in response.json()]
-                        for currentProtocol in currentProtocolList:
-                            if 'isis' in currentProtocol:
-                                response = self.ixnObj.get(self.ixnObj.httpHeader+deviceGroup+'/isisL3Router', silentMode=silentMode)
-                            self.verifyAllProtocolSessionsInternal(currentProtocol)
-
-                    response = self.ixnObj.get(self.ixnObj.httpHeader+ethernet+'/ipv4', silentMode=silentMode)
-                    ipv4List = ['%s/%s/%s' % (ethernet, 'ipv4', str(i["id"])) for i in response.json()]
-                    response = self.ixnObj.get(self.ixnObj.httpHeader+ethernet+'/ipv6', silentMode=silentMode)
-                    ipv6List = ['%s/%s/%s' % (ethernet, 'ipv6', str(i["id"])) for i in response.json()]
-                    for layer3Ip in ipv4List+ipv6List:
-                        for protocol in l3ProtocolList:
-                            response = self.ixnObj.get(self.ixnObj.httpHeader+layer3Ip+'/'+protocol, silentMode=True, ignoreError=True)
-                            if response.json() == [] or 'errors' in response.json():
-                                continue
-                            currentProtocolList = ['%s/%s/%s' % (layer3Ip, protocol, str(i["id"])) for i in response.json()]
-                            for currentProtocol in currentProtocolList:
-                                self.verifyAllProtocolSessionsInternal(currentProtocol, silentMode=silentMode)
+        for protocol in l3ProtocolList:
+            self.verifyAllProtocolSessionsInternal(protocol)
 
     def getIpObjectsByTopologyObject(self, topologyObj, ipType='ipv4'):
         """
@@ -2565,15 +2451,8 @@ class Protocol(object):
         Parameters
            ipType = ipv4 or ipv6
         """
-        ipObjList = []
-        deviceGroupResponse = self.ixnObj.get(topologyObj+'/deviceGroup')
-        deviceGroupList = ['%s/%s/%s' % (topologyObj, 'deviceGroup', str(i["id"])) for i in deviceGroupResponse.json()]
-        for deviceGroup in deviceGroupList:
-            response = self.ixnObj.get(deviceGroup+'/ethernet')
-            ethernetList = ['%s/%s/%s' % (deviceGroup, 'ethernet', str(i["id"])) for i in response.json()]
-            for ethernet in ethernetList:
-                response = self.ixnObj.get(ethernet+'/{0}'.format(ipType))
-                ipObjList = ['%s/%s/%s' % (ethernet, 'ipv4', str(i["id"])) for i in response.json()]
+        ipObjList = [] 
+        ipObjList = topologyObj.DeviceGroup.find().Ethernet.find().Ipv4.find()
         return ipObjList
 
     def getAllTopologyList(self):
@@ -2584,15 +2463,14 @@ class Protocol(object):
         Return
            If no Topology exists: Returns []
         """
-        response = self.ixnObj.get(self.ixnObj.sessionUrl+'/topology')
-        topologyList = ['%s/%s/%s' % (self.ixnObj.sessionUrl, 'topology', str(i["id"])) for i in response.json()]
+        topologyList = self.ixNetwork.Topology.find()
         return topologyList
 
     def clearAllTopologyVports(self):
-        response = self.ixnObj.get(self.ixnObj.sessionUrl + "/topology")
-        topologyList = ["%s%s" % (self.ixnObj.httpHeader, str(i["links"][0]["href"])) for i in response.json()]
+        topologyList = self.ixNetwork.Topology.find()
         for topology in topologyList:
-            self.ixnObj.patch(topology, data={"vports": []})
+            topology.ClearPortsAndTrafficStats()
+
 
     def modifyTopologyPortsNgpf(self, topologyObj, portList, topologyName=None):
         """
@@ -2620,12 +2498,10 @@ class Protocol(object):
                Example 1: [ ['192.168.70.10', '1', '1'] ]
                Example 2: [ ['192.168.70.10', '1', '1'], ['192.168.70.10', '2', '1'] ]
         """
-        vportList = self.portMgmtObj.getVports(portList)
-        if len(vportList) != len(portList):
-            raise IxNetRestApiException('modifyTopologyPortsNgpf: There is not enough vports created to match the number of ports.')
-        self.ixnObj.logInfo('vportList: %s' % vportList)
-        topologyData = {'vports': vportList}
-        response = self.ixnObj.patch(self.ixnObj.httpHeader+topologyObj, data=topologyData)
+        if topologyName != None and topologyObj is None:
+            topologyObj = self.ixNetwork.Topology.find(Name=topologyName)
+        else:
+            topologyObj.update(Ports=portList) 
 
     def getTopologyPorts(self, topologyObj):
         """
@@ -2641,7 +2517,7 @@ class Protocol(object):
         topologyResponse = self.ixnObj.get(self.ixnObj.httpHeader+topologyObj)
         vportList = topologyResponse.json()['vports']
         if vportList == []:
-            self.ixnObj.logError('No vport is created')
+            self.ixnObj.logError('No vport is creat/def ed')
             return 1
         self.ixnObj.logInfo('vportList: %s' % vportList)
         portList = []
