@@ -5,6 +5,7 @@ class Traffic(object):
     def __init__(self, ixnObj=None):
         self.ixnObj = ixnObj
         self.ixNetwork = ixnObj.ixNetwork
+        self.httpHeader = ixnObj.split('/api')[0]
 
     def setMainObject(self, mainObject):
         # For Python Robot Framework support
@@ -185,150 +186,6 @@ class Traffic(object):
 
         Return: trafficItemObj, endpointSetObjList, configElementObjList
         """
-        # if mode == 'create':
-        #     trafficItemUrl = self.ixnObj.sessionUrl+'/traffic/trafficItem'
-        # if mode == 'modify' and obj is None:
-        #     raise IxNetRestApiException('Modifying Traffic Item requires a Traffic Item object')
-        # if mode == 'create' and trafficItem is None:
-        #     raise IxNetRestApiException('Creating Traffic Item requires trafficItem kwargs')
-        # if mode == None:
-        #     raise IxNetRestApiException('configTrafficItem Error: Must include mode: config or modify')
-
-        # # Don't configure config elements if user is configuring highLevelStreams
-        # isHighLevelStreamTrue = False
-
-        # # Create a new Traffic Item
-        # if mode == 'create' and trafficItem != None:
-        #     if 'trackBy' in trafficItem:
-        #         trackBy = trafficItem['trackBy']
-        #         del trafficItem['trackBy']
-
-        #     self.ixnObj.logInfo('configTrafficItem: %s : %s' % (trafficItemUrl, trafficItem), timestamp=False)
-        #     response = self.ixnObj.post(trafficItemUrl, data=trafficItem)
-        #     trafficItemObj = response.json()['links'][0]['href']
-
-        # if mode == 'modify' and trafficItem != None:
-        #     trafficItemObj = obj
-        #     if 'trackBy' in trafficItem:
-        #         trackBy = trafficItem['trackBy']
-        #         del trafficItem['trackBy']
-        #     self.ixnObj.patch(self.ixnObj.httpHeader+trafficItemObj, data=trafficItem)
-
-        # # Create Endpoints
-        # if mode == 'create' and endpoints != None:
-        #     if type(endpoints) != list:
-        #         raise IxNetRestApiException('configTrafficItem error: Provide endpoints in a list')
-
-        #     endpointSetObjList = []
-        #     if 'trafficItemObj' not in locals():
-        #         # Expect the user to pass in the endpoint object handle correctly and parse
-        #         # out the traffic item object handle.
-        #         trafficItemObj = self.ixnObj.sessionUrl.split('/endpointSet')[0]
-
-        #     # endpoints = [{'name':'Flow-Group-1', 'sources': [topologyObj1], 'destinations': [topologyObj2], 'highLevelStreamElements': None}]
-        #     for endPoint in endpoints:
-        #         endpointSrcDst = {}
-        #         # {'name':'Flow-Group-1', 'sources': [topologyObj1], 'destinations': [topologyObj2]}
-        #         if 'name' in endPoint:
-        #             endpointSrcDst['name'] = endPoint['name']
-
-        #         if 'sources' in endPoint:
-        #             endpointSrcDst['sources'] = endPoint['sources']
-                
-        #         if 'destinations' in endPoint:
-        #             endpointSrcDst['destinations'] = endPoint['destinations']
-
-        #         if 'multicastDestinations' in endPoint:
-        #             endpointSrcDst['multicastDestinations'] = endPoint['multicastDestinations']
-
-        #         if 'multicastReceivers' in endPoint:
-        #             endpointSrcDst['multicastReceivers'] = endPoint['multicastReceivers']
-
-        #         if 'scalableDestinations' in endPoint:
-        #             endpointSrcDst['scalableDestinations'] = endPoint['scalableDestinations']
-
-        #         if 'scalableSources' in endPoint:
-        #             endpointSrcDst['scalableSources'] = endPoint['scalableSources']
-
-        #         response = self.ixnObj.post(self.ixnObj.httpHeader+trafficItemObj+'/endpointSet', data=endpointSrcDst)
-
-        #         if 'highLevelStreamElements' in endPoint:
-        #             highLevelStream = endPoint['highLevelStreamElements']
-        #             # JSON doesn't support None.  In case user passed in {} instead of None.
-        #             if highLevelStream == {}:
-        #                 highLevelStream = None
-        #         else:
-        #             highLevelStream = None
-
-        #         # Get the RETURNED endpointSet/# object
-        #         endpointSetObj = response.json()['links'][0]['href']
-        #         response = self.ixnObj.get(self.ixnObj.httpHeader+endpointSetObj)
-
-        #         # This endpontSet ID is used for getting the corresponding Config Element ID
-        #         # in case there are multiple endpoint sets created.
-        #         endpointSetId = response.json()['id']
-        #         endpointSetObjList.append(endpointSetObj)
-
-        #         # An endpoint flow group could have two highLevelStream if bi-directional is enabled.x
-        #         if highLevelStream != None:
-        #             isHighLevelStreamTrue = True
-        #             configElementObjList = None ;# Don't configure config elements if user is configuring highLevelStreams
-        #             streamNum = 1
-        #             for eachHighLevelStream in highLevelStream:
-        #                 self.configConfigElements(self.ixnObj.httpHeader+trafficItemObj+'/highLevelStream/'+str(streamNum), eachHighLevelStream)
-        #                 streamNum += 1
-
-        # if mode == 'modify' and endpoints != None:
-        #     endpointSrcDst = {}
-        #     if 'name' in endpoints:
-        #         endpointSrcDst['name'] = endpoints['name']
-        #     if 'sources' in endpoints:
-        #         endpointSrcDst['sources'] = endpoints['sources']
-        #     if 'destinations' in endpoints:
-        #         endpointSrcDst['destinations'] = endpoints['destinations']
-
-        #     endpointSetObj = obj
-        #     self.ixnObj.patch(self.ixnObj.httpHeader+endpointSetObj, data=endpointSrcDst)
-
-        # if isHighLevelStreamTrue == False and configElements != None:
-        #     if mode == 'create' and type(configElements) != list:
-        #         raise IxNetRestApiException('configTrafficItem error: Provide configElements in a list')
-
-        #     if mode == 'modify':
-        #         configElementObj = obj
-        #         self.configConfigElements(self.ixnObj.httpHeader+configElementObj, configElements)
-
-        #     if mode == 'create':
-        #         endpointResponse = self.ixnObj.get(self.ixnObj.httpHeader+trafficItemObj+'/endpointSet')
-
-        #         index = 0
-        #         configElementCounter = 1
-        #         configElementObjList = []
-        #         for eachEndpoint in endpointResponse.json():
-        #             configElementObj = trafficItemObj+'/configElement/'+str(configElementCounter)
-        #             configElementObjList.append(configElementObj)
-        #             self.configConfigElements(self.ixnObj.httpHeader+configElementObj, configElements[index])
-        #             if len(endpointSetObjList) == len(configElements):
-        #                 index += 1
-        #             configElementCounter += 1
-
-        # if configElements is None:
-        #     configElementObjList = []
-
-        # # Cannot configure tracking until endpoints are created. This is why
-        # # tracking config is at the end here.
-        # if mode in ['create', 'modify'] and 'trackBy' in locals():
-        #     self.ixnObj.logInfo('Config Traffic Item statistic trackings', timestamp=False)
-        #     self.ixnObj.patch(self.ixnObj.httpHeader+trafficItemObj+'/tracking', data={'trackBy': trackBy})
-
-        # # API server needs some time to complete processing the highlevel stream configuration before entering regenerate.
-        # if mode == 'create' and trafficItem != None:
-        #     return [trafficItemObj, endpointSetObjList, configElementObjList]
-
-        '''
-        RestPy implementation
-        '''
-
         if mode == 'modify' and obj is None:
             raise IxNetRestApiException('Modifying Traffic Item requires a Traffic Item object')
         if mode == 'create' and trafficItem is None:
@@ -1294,39 +1151,6 @@ class Traffic(object):
         Return
             1: If failed.
         """
-        # if type(expectedState) != list:
-        #     expectedState.split(' ')
-
-        # self.ixnObj.logInfo('checkTrafficState: Expecting state: {0}\n'.format(expectedState))
-        # for counter in range(1,timeout+1):
-        #     response = self.ixnObj.get(self.ixnObj.sessionUrl+'/traffic', silentMode=True)
-        #     currentTrafficState = response.json()['state']
-        #     if currentTrafficState == 'unapplied':
-        #         self.ixnObj.logWarning('\nCheckTrafficState: Traffic is UNAPPLIED')
-        #         self.applyTraffic()
-
-        #     self.ixnObj.logInfo('\ncheckTrafficState: {trafficState}: Expecting: {expectedStates}.'.format(trafficState=currentTrafficState,
-        #                                                                                                    expectedStates=expectedState),
-        #                         timestamp=False)
-        #     self.ixnObj.logInfo('\tWaited {counter}/{timeout} seconds'.format(counter=counter, timeout=timeout), timestamp=False)
-            
-        #     if counter <= timeout and currentTrafficState not in expectedState:
-        #         time.sleep(1)
-        #         continue
-
-        #     if counter <= timeout and currentTrafficState in expectedState:
-        #         time.sleep(8)
-        #         self.ixnObj.logInfo('checkTrafficState: Done\n')
-        #         return 0
-        
-        # if ignoreException == False:
-        #     raise IxNetRestApiException('checkTrafficState: Traffic state did not reach the expected state(s): {0}. It is at: {1}'.format(
-        #         expectedState, currentTrafficState))
-        # else:
-        #     return 1
-        '''
-        RestPy implementation
-        '''
 
         if type(expectedState) != list:
             expectedState.split(' ')
@@ -1432,26 +1256,6 @@ class Traffic(object):
         Return
             A list of Traffic Items
         """
-        # trafficItemObjList = []
-        # numOfTrafficItem = 0
-        # response = self.ixnObj.get(self.ixnObj.sessionUrl + '/traffic/trafficItem'  + "?skip=" + str(numOfTrafficItem) + "&take=100")
-
-        # while numOfTrafficItem < response.json()['count']:
-        #     for eachTrafficItem in response.json()['data']:
-        #         if getEnabledTrafficItemsOnly == True:
-        #             if eachTrafficItem['enabled'] == True:
-        #                 trafficItemObjList.append(eachTrafficItem['links'][0]['href'])
-        #         else:
-        #             trafficItemObjList.append(eachTrafficItem['links'][0]['href'])
-        #     numOfTrafficItem += 100
-        #     response = self.ixnObj.get(self.ixnObj.sessionUrl + '/traffic/trafficItem'  + "?skip=" + str(numOfTrafficItem) + "&take=100")
-        
-        # return trafficItemObjList
-        '''
-        RestPy implementation
-        '''
-        trafficItemObjList = []
-
         trafficItemObjList = self.ixNetwork.Traffic.TrafficItem.find()
         return trafficItemObjList
 
@@ -1593,26 +1397,6 @@ class Traffic(object):
                if trafficObj.getTransmissionType(configElementObj) == "continuous":
                    trafficObj.checkTrafficState(expectedState=['started', 'startedWaitingForStats'], timeout=45)
         """
-        # if regenerateTraffic:
-        #     self.regenerateTrafficItems()
-
-        # if applyTraffic:
-        #     self.applyTraffic()
-
-        # if blocking == False:
-        #     url = self.ixnObj.sessionUrl+'/traffic/operations/start'
-        #     response = self.ixnObj.post(url, data={'arg1': self.ixnObj.sessionUrl+'/traffic'})
-        #     self.ixnObj.waitForComplete(response, url + '/' + response.json()['id'], timeout=120)
-
-        # # Server will go into blocking state until it is ready to accept the next api command.
-        # if blocking == True:
-        #     enabledTrafficItemList = self.getAllTrafficItemObjects(getEnabledTrafficItemsOnly=True)
-        #     url = self.ixnObj.sessionUrl+'/traffic/trafficItem/operations/startstatelesstrafficblocking'
-        #     response = self.ixnObj.post(url, data={'arg1': enabledTrafficItemList})
-        #     self.ixnObj.waitForComplete(response, url + '/' + response.json()['id'], timeout=120)
-        '''
-        RestPy implementation
-        '''
         if regenerateTraffic:
             self.ixNetwork.Traffic.TrafficItem.find().Generate()
 
@@ -1647,29 +1431,6 @@ class Traffic(object):
                POST: /api/v1/sessions/{id}/ixnetwork/traffic/operations/stop
                DATA: {'arg1': '/api/v1/sessions/{id}/ixnetwork/traffic'}
         """
-        # if blocking == True:
-        #     #queryData = {"from": "/traffic",
-        #     #    "nodes": [{"node": "trafficItem", "properties": ["enabled"], "where": [{"property": "enabled", "regex": "True"}]}]}
-
-        #     #queryResponse = self.ixnObj.query(data=queryData, silentMode=False)
-        #     #enabledTrafficItemHrefList = [trafficItem['href'] for trafficItem in queryResponse.json()['result'][0]['trafficItem']]
-
-        #     enabledTrafficItemList = self.getAllTrafficItemObjects(getEnabledTrafficItemsOnly=True)
-        #     url = self.ixnObj.sessionUrl+'/traffic/operations/stopstatelesstrafficblocking'
-        #     response = self.ixnObj.post(url, data={'arg1': enabledTrafficItemList})
-        #     self.ixnObj.waitForComplete(response, url + '/' + response.json()['id'], timeout=120)
-
-        # if blocking == False:
-        #     self.ixnObj.logInfo('stopTraffic: %s' % self.ixnObj.sessionUrl+'/traffic/operations/stop')
-        #     url = self.ixnObj.sessionUrl+'/traffic/operations/stop'            
-        #     response = self.ixnObj.post(url, data={'arg1': '{0}/ixnetwork/traffic'.format(self.ixnObj.headlessSessionId)})
-        #     self.ixnObj.waitForComplete(response, url + '/' + response.json()['id'], timeout=120)
-
-        # self.checkTrafficState(expectedState=['stopped'])
-        # time.sleep(3)
-        '''
-        RestPy implementation
-        '''
         if blocking == True:
             self.ixNetwork.Traffic.StopStatelessTrafficBlocking()
         else:
