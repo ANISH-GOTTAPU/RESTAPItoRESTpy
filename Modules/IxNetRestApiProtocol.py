@@ -46,17 +46,6 @@ from IxNetRestApi import IxNetRestApiException
 from IxNetRestApiPortMgmt import PortMgmt
 from IxNetRestApiStatistics import Statistics
 
-# 8.40 updates:
-#    sessionStatus uses ?includes=sessionStatus and then response.json()['sessionStatus']
-#       - verifyProtocolSessionsNgpf 
-#       - verifyAllProtocolSessionsInternal
-#       - getNgpfGatewayIpMacAddress (resolvedGatewayMac rquires ?includes=resolvedGatewayMac)
-#       - showTopologies
-#       - verifyArp
-#
-#    bgpIpv4Peer/1: LocalIpv4Ver2 for localIpAddress is removed.
-#
-
 class Protocol(object):
     def __init__(self, ixnObj=None, portMgmtObj=None):
         """
@@ -108,21 +97,6 @@ class Protocol(object):
         Return
             /api/v1/sessions/{id}/topology/{id}
         """
-        # url = self.ixnObj.sessionUrl+'/topology'
-        # vportList = self.portMgmtObj.getVports(portList)
-
-        # if len(vportList) != len(portList):
-        #     raise IxNetRestApiException('createTopologyNgpf: There is not enough vports created to match the number of ports.')
-
-        # topologyData = {'vports': vportList}
-        # if topologyName != None:
-        #     topologyData['name'] = topologyName
-
-        # self.ixnObj.logInfo('Create new Topology Group')
-        # response = self.ixnObj.post(url, data=topologyData)
-        # topologyObj = response.json()['links'][0]['href']
-        # return topologyObj
-
         vportList = self.portMgmtObj.getVports(portList)
         topologyObj = self.ixNetwork.Topology.add(Name=topologyName, Vports=vportList)
         return topologyObj
@@ -143,15 +117,6 @@ class Protocol(object):
         Returns:
             /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}
         """
-        # url = self.ixnObj.httpHeader+topologyObj+'/deviceGroup'
-        # deviceGroupData = {'multiplier': int(multiplier)}
-        # if deviceGroupName != None:
-        #     deviceGroupData['name'] = deviceGroupName
-
-        # self.ixnObj.logInfo('Create new Device Group')
-        # response = self.ixnObj.post(url, data=deviceGroupData)
-        # deviceGroupObj = response.json()['links'][0]['href']
-        # return deviceGroupObj
 
         deviceGroupObj = topologyObj.DeviceGroup.add(Name=deviceGroupName,Multiplier=multiplier)
         return deviceGroupObj
@@ -251,9 +216,6 @@ class Protocol(object):
                                 mtu={'start': 1400, 'direction': 'increment', 'step': 0},                                
                                 )
         """
-        '''
-        RestPy Implementation
-        '''
         if obj != None:
             if 'ethernet' in obj.href:
                 ethObj = obj
@@ -278,9 +240,6 @@ class Protocol(object):
             # ethObj.Name = kwargs['ethernetName']
             kwargs['name'] = kwargs['ethernetName'] 
             del kwargs['ethernetName'] 
-
-        # if 'name' in kwargs:
-        #     ethObj.Name = kwargs['name']
 
         if 'macAddress' in kwargs:
             macObj = ethObj.Mac
@@ -344,10 +303,7 @@ class Protocol(object):
         Return
             /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}/ethernet/{id}/isisL3/{id}
         """
-        '''
-        RestPy Implementation
-        '''
-        
+
         if 'isis' in obj.href:
             # To modify ISIS
             isisObj = obj
@@ -395,8 +351,6 @@ class Protocol(object):
 
            data: <dict>:  Get attributes from the IxNetwork API browser.
         """
-        # response = self.ixnObj.get(self.ixnObj.httpHeader + isisL3RouterObj)
-
         if 'enableBIER' in data:
             isisL3RouterObj.EnableBIER = data['enableBIER']
 
@@ -488,9 +442,6 @@ class Protocol(object):
         Return
             /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}/ethernet/{id}/ipv4/{id}
         """
-        '''
-        RestPy Implementation
-        '''
         # To modify
         if ngpfEndpointName:
             ipv4Obj = self.getNgpfObjectHandleByName(ngpfEndpointName=ngpfEndpointName, ngpfEndpointObject='ipv4')
@@ -513,7 +464,6 @@ class Protocol(object):
             else:
                 ipv4Obj = obj.Ipv4.add()
 
-        # ['ipv4Address', 'gateway', 'EnableGratarpRarp', 'Ipv4GratarpRarp', 'ManualGatewayMac', 'prefix', 'ResolveGateway']:
         if 'ipv4Address' in kwargs:
             addrObj = ipv4Obj.Address
             ipv4AddrValue =  kwargs['ipv4Address']
@@ -668,9 +618,6 @@ class Protocol(object):
         Return
             /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}/ethernet/{id}/ipv4/{id}/dhcpv4client/{id}
         """
-        '''
-        RestPy implementation
-        '''
         if 'dhcp' not in obj.href:
             # self.ixnObj.logInfo('Create new DHCP client V4')
             dhcpObj = obj.Dhcpv4client.add()
@@ -683,10 +630,6 @@ class Protocol(object):
 
         if 'name' in kwargs:
             dhcpObj.Name = kwargs['name']
-
-        # All of these DHCP attributes configures multivalue singleValue. So just loop them to do the same thing.
-        dhcpAttributes = ['dhcp4Broadcast', 'dhcp4UseFirstServer', 'dhcp4ServerAddress', 'dhcp4GatewayMac', 'dhcp4GatewayAddress'
-                          'useRapidCommit', 'dhcp4GatewayMac', 'renewTimer']
 
         if 'dhcp4Broadcast' in kwargs:
             dhcp4BroadCastObj = dhcpObj.Dhcp4Broadcast
@@ -817,9 +760,6 @@ class Protocol(object):
         Return
             /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}/ethernet/{id}/ipv4/{id}/dhcpv4server/{id}
         """
-        '''
-        RestPy implementation
-        '''
         if 'dhcp' not in obj.href:
             # self.ixnObj.logInfo('Create new DHCP server v4')
             dhcpObj = obj.Dhcpv4server.add()
@@ -912,9 +852,6 @@ class Protocol(object):
         Return
             /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}/ethernet/{id}/ipv4/{id}/ospfv2/{id}
         """
-        '''
-        RestPy implementation
-        '''
         if obj != None:
             if routerId:
                 ospfObj = self.getNgpfObjectHandleByRouterId(routerId=routerId, ngpfEndpointObject='ospfv2')
@@ -1000,9 +937,6 @@ class Protocol(object):
         Return
             /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}/ethernet/{id}/ipv6/{id}/ospfv3/{id}
         """
-        '''
-        RestPy implementation
-        '''        
         if obj != None:
             if routerId:
                 ospfObj = obj.find().Ospfv3.find(LocalRouterID=routerId)
@@ -1100,9 +1034,6 @@ class Protocol(object):
         """
         # To create a new BGP stack using IPv4 object.
 
-        '''
-        RestPy implementation
-        '''
         # To modify
         if ngpfEndpointName:
             bgpObj = self.getNgpfObjectHandleByName(ngpfEndpointName=ngpfEndpointName, ngpfEndpointObject='bgpIpv4Peer')
@@ -1135,17 +1066,6 @@ class Protocol(object):
                 bgpObj = obj.BgpIpv4Peer.add()
             if hasattr(obj,'BgpIpv6Peer'):
                 bgpObj = obj.BgpIpv6Peer.add()
-
-
-        # if 'enableBgp' in kwargs:
-        # if 'active' in kwargs :
-        # if 'dutIp' in kwargs:
-        # if 'holdTimer' in kwargs:
-        # if 'localAs2Bytes' in kwargs:
-        # if 'localAs4Bytes' in kwargs:
-        # if 'enable4ByteAs' in kwargs:
-        # if 'enableGracefulRestart' in kwargs:
-        # if 'restartTime' in kwargs:
 
         if 'active' in kwargs:
             activeObj = bgpObj.find().Active
@@ -1357,9 +1277,6 @@ class Protocol(object):
         Return
             /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}/ethernet/{id}/mpls/{id}
         """
-        '''
-        RestPy implementation
-        '''
         if 'mpls' not in ethernetObj:
             mplsObj = ethernetObj.Mpls.add()
         else:
@@ -1493,9 +1410,6 @@ class Protocol(object):
         Return
             /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}/ethernet/{id}/ipv4/{id}/rsvrteLsps/{id}
         """
-        '''
-        RestPy Implementation
-        '''
         rsvpTeObj = ipv4Obj.RsvpteLsps.add()
         return rsvpTeObj 
 
@@ -1696,33 +1610,26 @@ class Protocol(object):
         Syntax
             PATCH: /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}/networkGroup/{id}/networkTopology/simRouter/1{id}
         """
-        response = self.ixnObj.get(self.ixnObj.httpHeader + networkGroupObj + '/networkTopology/simRouter/1')
-        self.ixnObj.logInfo('Config Network Group advertising routes')
-        multivalue = response.json()['routerId']
-
+        simRouteObj = networkGroupObj.NetworkTopology.find().SimRouter.find()
         if 'routerId' in kwargs:
             data = {'start': kwargs['routerId']['start'],
                     'step': kwargs['routerId']['step'],
                     'direction': kwargs['routerId']['direction']}
-        else:
-            data = {}
+            self.configMultivalue(simRouteObj.RouterId, 'counter', data)
 
-        self.ixnObj.configMultivalue(multivalue, 'counter', data)
-
+        pseudoRouter = pseudoRouter[0].capitalize() + pseudoRouter[1:]
         if 'routerLsaBit' in kwargs:
             self.ixnObj.logInfo('Config router lsa type')
-            response = self.ixnObj.get(
-                self.ixnObj.httpHeader + networkGroupObj + '/networkTopology/simRouter/1'+ '/{0}/1'.format(pseudoRouter))
-
             if kwargs['routerLsaBit'] == 'B':
-                multivalue = response.json()['bBit']
                 data = {'value': 'True'}
-                self.ixnObj.configMultivalue(multivalue, 'singleValue', data)
+                multivalue = eval('simRouteObj.'+pseudoRouter+'.find().BBit')
+                self.configMultivalue(multivalue, 'singleValue', data)
 
             elif kwargs['routerLsaBit'] == 'E':
-                multivalue = response.json()['eBit']
                 data = {'value': 'True'}
-                self.ixnObj.configMultivalue(multivalue, 'singleValue', data)
+                multivalue = eval('simRouteObj.'+pseudoRouter+'.find().EBit')
+                self.configMultivalue(multivalue, 'singleValue', data)
+
 
     def prefixPoolsConnector(self, prefixPoolsObj, protocolObj):
         """
@@ -1732,11 +1639,6 @@ class Protocol(object):
         :param prefixPoolsObj: Prefix Pools Object which should be connected to given protocol object
         :param protocolObj: Protocol object for which prefixpool object should be connected
         """
-        # response = self.ixnObj.patch(self.ixnObj.httpHeader + prefixPoolsObj + '/connector',
-        #                              data={"connectedTo": protocolObj})
-        '''
-        RestPy implementation
-        '''
         connectorObj = prefixPoolsObj.Connector.add(ConnectedTo=protocolObj)
 
     def networkGroupWithTopologyConnector(self, networkGroupObj, protocolObj):
@@ -1870,10 +1772,6 @@ class Protocol(object):
             PATCH: /api/v1/sessions/{id}/ixnetwork/multivalue/{id}/counter
             PATCH: /api/v1/sessions/{id}/ixnetwork/multivalue/{id}/valueList
         """
-        # self.ixnObj.patch(self.ixnObj.httpHeader+multivalueUrl+'/'+multivalueType, data=data)
-        '''
-        RestPy implementation
-        '''
         if multivalueType.lower() == "counter":
             if data['direction'] == "increment":
                 multivalueUrl.Increment(start_value=data['start'], step_value=data['step'])
@@ -1914,20 +1812,6 @@ class Protocol(object):
         Return
            The multivalue values
         """
-        # response = self.ixnObj.get(self.ixnObj.httpHeader+multivalueObj+'?includes=count', silentMode=silentMode)
-        # count = response.json()['count']
-        # if silentMode == False:
-        #     self.ixnObj.logInfo('getMultivalueValues: {0} Count={1}'.format(multivalueObj, count))
-        # data = {'arg1': multivalueObj,
-        #         'arg2': 0,
-        #         'arg3': count
-        #         }
-        # response = self.ixnObj.post(self.ixnObj.sessionUrl+'/multivalue/operations/getValues', data=data, silentMode=silentMode)
-        # self.ixnObj.waitForComplete(response, self.ixnObj.sessionUrl+'/operations/multivalue/getValues'+response.json()['id'], silentMode=silentMode)
-        # return response.json()['result']
-        '''
-        RestPy implementation
-        '''
         return multivalueObj.Values
 
     def verifyProtocolSessionsUp(self, protocolViewName='BGP Peer Per Port', timeout=60):
@@ -2514,21 +2398,7 @@ class Protocol(object):
         Returns
             A list of ports: [('192.168.70.10', '1', '1') ('192.168.70.10', '1', '2')]
         """
-        topologyResponse = self.ixnObj.get(self.ixnObj.httpHeader+topologyObj)
-        vportList = topologyResponse.json()['vports']
-        if vportList == []:
-            self.ixnObj.logError('No vport is creat/def ed')
-            return 1
-        self.ixnObj.logInfo('vportList: %s' % vportList)
-        portList = []
-        for vport in vportList:
-            response = self.ixnObj.get(self.ixnObj.httpHeader+vport)
-            # 192.168.70.10:1:1
-            currentPort = response.json()['assignedTo']
-            chassisIp = currentPort.split(':')[0]
-            card = currentPort.split(':')[1]
-            port = currentPort.split(':')[2]
-            portList.append((chassisIp, card, port))
+        portList = topologyObj.ports
         return portList
 
     def sendArpNgpf(self, ipv4ObjList):
@@ -2542,10 +2412,8 @@ class Protocol(object):
         if type(ipv4ObjList) != list:
             raise IxNetRestApiException('sendArpNgpf error: The parameter ipv4ObjList must be a list of objects.')
 
-        url = self.ixnObj.sessionUrl+'/topology/deviceGroup/ethernet/ipv4/operations/sendarp'
-        data = {'arg1': ipv4ObjList}
-        response = self.ixnObj.post(url, data=data)
-        self.ixnObj.waitForComplete(response, url+'/'+response.json()['id'])
+        for ipv4Obj in ipv4ObjList:
+            ipv4Obj.SendArp()
 
     def sendPing(self, srcIpList=None, destIp=None):
         """
@@ -2563,46 +2431,18 @@ class Protocol(object):
             Failed: Ping: 1.1.1.1 -> 1.1.1.10 failed - timeout
             0: Returns 0 if no src IP address found in the srcIpList.
         """
-        queryData = {'from': '/',
-                    'nodes': [{'node': 'topology',    'properties': ['name'], 'where': []},
-                              {'node': 'deviceGroup', 'properties': [], 'where': []},
-                              {'node': 'ethernet',    'properties': [], 'where': []},
-                              {'node': 'ipv4',        'properties': ['address', 'count'], 'where': []}]
-                    }
-        url = self.ixnObj.sessionUrl+'/topology/deviceGroup/ethernet/ipv4/operations/sendping'
-        queryResponse = self.ixnObj.query(data=queryData)
         srcIpIndexList = []
         noSrcIpIndexFound = []
-        for topology in queryResponse.json()['result'][0]['topology']:
-            for ipv4 in topology['deviceGroup'][0]['ethernet'][0]['ipv4']:
-                ipv4Obj = ipv4['href']
-                ipv4Count = ipv4['count']
-                ipv4AddressMultivalue = ipv4['address']
-                ipv4AddressList = self.ixnObj.getMultivalueValues(ipv4AddressMultivalue)
-                url = self.ixnObj.httpHeader+ipv4Obj+'/operations/sendping'
-                for eachSrcIp in srcIpList:
-                    # Don't error out if eachSrcIp is not found in the ipv4AddressList because
-                    # it may not be in the current for loop topology.
-                    try:
-                        srcIpIndex = ipv4AddressList.index(eachSrcIp)
-                        srcIpIndexList.append(srcIpIndex+1)
-                    except:
-                        noSrcIpIndexFound.append(eachSrcIp)
-                        pass
-                if srcIpIndexList != []:
-                    data = {'arg1': ipv4Obj, 'arg2': destIp, 'arg3': srcIpIndexList}
-                    response = self.ixnObj.post(url, data=data)
-                    self.ixnObj.waitForComplete(response, url+response.json()['id'])
-                    self.ixnObj.logInfo(response.json()['result'][0]['arg3'])
-                    if noSrcIpIndexFound != []:
-                        self.ixnObj.logError('No srcIp address found in configuration: {0}'.format(noSrcIpIndexFound))
-                    return response.json()['result'][0]['arg3']
+        ipv4ObjList = []
+        for srcIp in srcIpList:
+            ipv4Obj = self.ixNetwork.Topology.find.DeviceGroup.find().Ethernet.find().Ipv4.find(Address=srcIp)
+            ipv4ObjList.append(ipv4Obj)
 
-                # Reset these variable to empty list.
-                srcIpIndexList = []
-                noSrcIpIndexFound = []
-        if srcIpIndexList == []:
+        if ipv4ObjList == []:
             raise IxNetRestApiException('No srcIp addresses found in configuration: {0}'.format(srcIpList))
+
+        for ipv4Obj in ipv4ObjList:
+            ipv4Obj.sendPing(destIp)
 
     def verifyNgpfProtocolStarted(self, protocolObj, ignoreFailure=False, timeout=30):
         """
@@ -2836,45 +2676,12 @@ class Protocol(object):
             - removePacket[Unresolved]
             - The Gateway IP's Mac Address.
         """
-        queryData = {'from': '/',
-                    'nodes': [{'node': 'topology',    'properties': [], 'where': []},
-                              {'node': 'deviceGroup', 'properties': [], 'where': []},
-                              {'node': 'ethernet',  'properties': [], 'where': []},
-                              {'node': 'ipv4',  'properties': ['gatewayIp'], 'where': []}
-                    ]}
-        queryResponse = self.ixnObj.query(data=queryData, silentMode=False)
-        for topology in queryResponse.json()['result'][0]['topology']:
-            for deviceGroup in topology['deviceGroup']:
-                try:
-                    # Getting in here means IPv4 session status is UP.
-                    ipv4Href = deviceGroup['ethernet'][0]['ipv4'][0]['href']
-                    ipv4SessionStatus = self.getSessionStatus(ipv4Href)
-                    gatewayIpMultivalue = deviceGroup['ethernet'][0]['ipv4'][0]['gatewayIp']
-                    self.ixnObj.logInfo('\t%s' % ipv4Href)
-                    self.ixnObj.logInfo('\tIPv4 sessionStatus: %s' % ipv4SessionStatus)
-                    self.ixnObj.logInfo('\tGatewayIpMultivalue: %s' % gatewayIpMultivalue)
-                    response = self.ixnObj.getMultivalueValues(gatewayIpMultivalue)
-                    valueList = response
-                    
-                    self.ixnObj.logInfo('gateway IP: %s' % valueList)
-                    if gatewayIp in valueList:
-                        gatewayIpIndex = valueList.index(gatewayIp)
-                        self.ixnObj.logInfo('Found gateway: %s ; Index:%s' % (gatewayIp, gatewayIpIndex))
-
-                        queryData = {'from': deviceGroup['ethernet'][0]['href'],
-                                    'nodes': [{'node': 'ipv4',  'properties': ['gatewayIp', 'resolvedGatewayMac'], 'where': []}
-                                    ]}
-                        queryResponse = self.ixnObj.query(data=queryData, silentMode=False)
-                        response = self.ixnObj.get(self.ixnObj.httpHeader+ipv4Href+'?includes=resolvedGatewayMac')
-                        gatewayMacAddress = response.json()['resolvedGatewayMac']
-                        self.ixnObj.logInfo('gatewayIpMacAddress: %s' % gatewayMacAddress)
-                        if 'Unresolved' in gatewayMacAddress:
-                            raise IxNetRestApiException('Gateway Mac Address is unresolved.')
-                        return gatewayMacAddress[0]
-                        
-                except:
-                    pass
-        return 0
+        ipv4Obj = None
+        ipv4Obj = self.ixNetwork.Topology.find().DeviceGroup.find().Ipv4.find(gatewayip=gatewayIp)
+        if ipv4Obj is not None:
+            return ipv4Obj.ResolvedGatewayMac
+        else:
+            return None
 
     def getDeviceGroupSrcIpGatewayIp(self, srcIpAddress):
         """
@@ -2889,30 +2696,12 @@ class Protocol(object):
             0: Failed. No srcIpAddress found in any Device Group.
             Gateway IP address
         """
-        queryData = {'from': '/',
-                    'nodes': [{'node': 'topology',    'properties': [], 'where': []},
-                              {'node': 'deviceGroup', 'properties': [], 'where': []},
-                              {'node': 'ethernet',  'properties': [], 'where': []},
-                              {'node': 'ipv4',  'properties': ['address', 'gatewayIp'], 'where': []},
-                              ]}
-
-        queryResponse = self.ixnObj.query(data=queryData, silentMode=False)
-        for topology in queryResponse.json()['result'][0]['topology']:
-            for deviceGroup in topology['deviceGroup']:
-                try:
-                    srcIpMultivalue = deviceGroup['ethernet'][0]['ipv4'][0]['address']
-                    gatewayIpMultivalue = deviceGroup['ethernet'][0]['ipv4'][0]['gatewayIp']
-                    response = self.ixnObj.getMultivalueValues(srcIpMultivalue)
-                    srcIp = response[0]
-                    if srcIpAddress == srcIp:
-                        self.ixnObj.logInfo('Found srcIpAddress: %s. Getting Gatway IP address ...' % srcIpAddress)
-                        response = self.ixnObj.getMultivalueValues(gatewayIpMultivalue)
-                        gatewayIp = response[0]
-                        self.ixnObj.logInfo('Gateway IP address: %s' % gatewayIp)
-                        return gatewayIp
-                except:
-                    pass
-        return 0
+        ipv4Obj = None
+        ipv4Obj = self.ixNetwork.Topology.find().DeviceGroup.find().ipv4.find(Address=srcIpAddress)
+        if ipv4Obj is not None:
+            return ipv4Obj.gatewayip
+        else:
+            return None
 
     def getDeviceGroupObjAndIpObjBySrcIp(self, srcIpAddress):
         """
@@ -2932,34 +2721,13 @@ class Protocol(object):
             None: If no srcIpAddress is found.
             deviceGroup Object and IPv4|IPv6 object
         """
-        queryData = {'from': '/',
-                    'nodes': [{'node': 'topology',    'properties': [], 'where': []},
-                              {'node': 'deviceGroup', 'properties': [], 'where': []},
-                              {'node': 'ethernet',  'properties': [], 'where': []},
-                              {'node': 'ipv4',  'properties': ['address'], 'where': []},
-                              {'node': 'ipv6',  'properties': ['address'], 'where': []}
-                              ]}
+        ipv4Obj = None
+        ipv4Obj = self.ixNetwork.Topology.find().DeviceGroup.find().ipv4.find(Address=srcIpAddress)
+        if ipv4Obj is not None:
+            return [ipv4Obj.parent, ipv4Obj]
+        else:
+            return None
 
-        queryResponse = self.ixnObj.query(data=queryData, silentMode=False)
-        for topology in queryResponse.json()['result'][0]['topology']:
-            for deviceGroup in topology['deviceGroup']:
-                for ethernet in deviceGroup['ethernet']:
-                    try:
-                        if bool(re.match(r'[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+', srcIpAddress)):
-                            srcIpMultivalue = ethernet['ipv4'][0]['address']
-                            ipObj = ethernet['ipv4'][0]['href']
-                        else:
-                            # IPv6 format: ['2000:0:0:1:0:0:0:2', '2000:0:0:2:0:0:0:2', '2000:0:0:3:0:0:0:2', '2000:0:0:4:0:0:0:2']
-                            srcIpMultivalue = ethernet['ipv6'][0]['address']
-                            ipObj = ethernet['ipv6'][0]['href']
-
-                        response = self.ixnObj.getMultivalueValues(srcIpMultivalue)
-                        if srcIpAddress in response:
-                            self.ixnObj.logInfo('Found srcIpAddress: %s' % srcIpAddress)
-                            return deviceGroup['href'],ipObj
-                    except:
-                        pass
-        
     def getInnerDeviceGroup(self, deviceGroupObj):
         deviceGroupList = []
         if deviceGroupObj is not None:
@@ -2991,28 +2759,16 @@ class Protocol(object):
             Ex 2: ('/api/v1/sessions/1/ixnetwork/topology/1', ['/api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1', 
                                                                '/api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/deviceGroup/3'])
         """
-        response = self.ixnObj.get(self.ixnObj.sessionUrl + '/topology')
-        for eachTopology in response.json():
-            topologyObj = eachTopology['links'][0]['href']
-            vportList = eachTopology['vports']
-            response = self.ixnObj.get(self.ixnObj.httpHeader + topologyObj + '/deviceGroup')
+        devGrphrefList = []
+        for topology in self.ixNetwork.Topology.find():
+            if self.ixNetwork.Vport.find(Name=portName).href in topology.Vports:
+                devGrpList = topology.DeviceGroup.find()
+                break
 
-            deviceGroupList = []
-            for eachDeviceGroup in response.json():
-                deviceGroupObj = eachDeviceGroup['links'][0]['href']
-                deviceGroupList.append(deviceGroupObj)
+        for devGrpObj in devGrpList:
+            devGrphrefList.append(devGrpObj.href)
 
-                # Verify if there are additional device groups within a device group.
-                response = self.ixnObj.get(self.ixnObj.httpHeader + deviceGroupObj + '/deviceGroup')
-                if response.json():
-                    for response in response.json():
-                        deviceGroupList.append(response['links'][0]['href'])
-                
-            for eachVport in vportList:
-                response = self.ixnObj.get(self.ixnObj.httpHeader+eachVport)
-                vportName = response.json()['name']
-                if portName == vportName:
-                    return topologyObj, deviceGroupList
+        return (topology.href, devGrphrefList)
 
     def getNetworkGroupObjByIp(self, networkGroupIpAddress):
         """
@@ -3031,29 +2787,21 @@ class Protocol(object):
             None: No ipAddress found in any NetworkGroup.
             network group Object: The Network Group object.
         """
-        queryData = {'from': '/',
-                    'nodes': [{'node': 'topology',    'properties': [], 'where': []},
-                              {'node': 'deviceGroup', 'properties': [], 'where': []},
-                              {'node': 'networkGroup',  'properties': [], 'where': []},
-                              {'node': 'ipv4PrefixPools',  'properties': ['networkAddress'], 'where': []},
-                              {'node': 'ipv6PrefixPools',  'properties': ['networkAddress'], 'where': []}
-                              ]}
-
-        queryResponse = self.ixnObj.query(data=queryData, silentMode=False)
-
         if '.' in networkGroupIpAddress:
             prefixPoolType = 'ipv4PrefixPools'
         if ':' in networkGroupIpAddress:
             prefixPoolType = 'ipv6PrefixPools'
 
-        for topology in queryResponse.json()['result'][0]['topology']:
-            for deviceGroup in topology['deviceGroup']:
-                for networkGroup in deviceGroup['networkGroup']:
-                    for prefixPool in networkGroup[prefixPoolType]:
-                        prefixPoolRangeMultivalue = prefixPool['networkAddress']
-                        response = self.ixnObj.getMultivalueValues(prefixPoolRangeMultivalue)
-                        if networkGroupIpAddress in response:
-                            return networkGroup['href']
+        grpObj = None
+        if prefixPoolType == 'ipv4PrefixPools':
+            grpObj = self.ixNetwork.Topology.find().DeviceGroup.find().NetworkGroup.find().Ipv4PrefixPools.find()
+        elif prefixPoolType == 'ipv6PrefixPools':
+            grpObj = self.ixNetwork.Topology.find().DeviceGroup.find().NetworkGroup.find().Ipv6PrefixPools.find()
+
+        if grpObj is not None:
+            netAddr = grpObj.LastNetworkAddress
+            if str(netAddr[0]) == str(networkGroupIpAddress):
+                return grpObj.parent
 
     def getIpAddrIndexNumber(self, ipAddress):
         """
@@ -3573,107 +3321,6 @@ class Protocol(object):
                               '/api/v1/sessions/1/ixnetwork/topology/2/deviceGroup/3/ethernet/1/ipv4/1/ospfv2']
                             ]}
         """
-        # self.ixnObj.logInfo('{0}...'.format('\ngetProtocolListByPortNgpf'), timestamp=False)
-        # if port:
-        #     chassisIp = str(port[0])
-        #     cardNum = str(port[1])
-        #     portNum = str(port[2])
-        #     specifiedPort = chassisIp+':'+cardNum+':'+portNum
-
-        # loopFlag = 0
-
-        # # Loop each Topology and search for matching port or portName
-        # response = self.ixnObj.get(self.ixnObj.sessionUrl+'/topology', silentMode=True)
-        # topologyList = ['%s/%s/%s' % (self.ixnObj.sessionUrl, 'topology', str(i["id"])) for i in response.json()]
-        # for topology in topologyList:
-        #     response = self.ixnObj.get(topology, silentMode=True)
-        #     topologyObj = response.json()['links'][0]['href']
-        #     vportList = response.json()['vports']
-
-        #     for eachVport in vportList:
-        #         response = self.ixnObj.get(self.ixnObj.httpHeader+eachVport, silentMode=True)
-        #         vportName = response.json()['name']
-
-        #         if portName != None:
-        #             if portName != vportName:
-        #                 continue
-        #             else:
-        #                 loopFlag = 1
-        #                 break
-                
-        #         if port != None:
-        #             # actualPort: ['192.168.70.3:1:2']
-        #             actualPort = self.portMgmtObj.getPhysicalPortFromVport([eachVport])[0]
-        #             if actualPort != specifiedPort:
-        #                 continue
-        #             else:
-        #                 loopFlag = 1
-        #                 break
-
-        #     if loopFlag == 0:
-        #         # The port or portName is not found.
-        #         continue
-
-        #     enabledProtocolList = {'topology': topologyObj}
-        #     response = self.ixnObj.get(topology+'/deviceGroup', silentMode=True)
-        #     deviceGroupList = ['%s/%s/%s' % (topology, 'deviceGroup', str(i["id"])) for i in response.json()]
-
-        #     deviceGroupObjects = []
-        #     enabledProtocolList = {'topology': topologyObj, 'deviceGroup': []}
-        #     for deviceGroup in deviceGroupList:
-        #         deviceGroupObj = '/api' + deviceGroup.split('/api')[1]
-        #         deviceGroupObjects.append(deviceGroupObj)
-
-        #         response = self.ixnObj.get(deviceGroup+'/ethernet', silentMode=True)
-        #         ethernetList = ['%s/%s/%s' % (deviceGroup, 'ethernet', str(i["id"])) for i in response.json()]
-        #         for ethernet in ethernetList:
-        #             deviceGroupObjects.append('/api'+ethernet.split('/api')[1])
-        #             response = self.ixnObj.get(ethernet+'/ipv4', silentMode=True)
-        #             ipv4List = ['%s/%s/%s' % (ethernet, 'ipv4', str(i["id"])) for i in response.json()]
-        #             if ipv4List:
-        #                 deviceGroupObjects.append('/api'+ipv4List[0].split('/api')[1])
-        #             response = self.ixnObj.get(ethernet+'/ipv6', silentMode=True)
-        #             ipv6List = ['%s/%s/%s' % (ethernet, 'ipv6', str(i["id"])) for i in response.json()]
-        #             if ipv6List:
-        #                 deviceGroupObjects.append('/api'+ipv6List[0].split('/api')[1])
-        #             for layer3Ip in ipv4List+ipv6List:
-        #                 url = layer3Ip+'?links=true'
-        #                 response = self.ixnObj.get(url, silentMode=True)
-        #                 for protocol in response.json()['links']:
-        #                     currentProtocol = protocol['href']
-        #                     if (bool(re.match('^/api/.*(ipv4|ipv6)/[0-9]+$', currentProtocol))):
-        #                         continue
-        #                     if (bool(re.match('^/api/.*(ipv4|ipv6)/[0-9]+/port$', currentProtocol))):
-        #                         continue
-        #                     url = self.ixnObj.httpHeader+currentProtocol
-        #                     response = self.ixnObj.get(url, silentMode=True)
-        #                     if response.json() == []:
-        #                         # The currentProtocol is not configured.
-        #                         continue
-        #                     else:
-        #                         response = self.ixnObj.get(url, silentMode=True)
-        #                         currentProtocol =response.json()[0]['links'][0]['href']
-        #                         deviceGroupObjects.append(currentProtocol)
-
-        #         enabledProtocolList['deviceGroup'].insert(len(enabledProtocolList), deviceGroupObjects)
-        #         deviceGroupObjects = []
-
-        #     # Getting here means either the port or portName is found and the object is obtained.
-        #     # Break and return the object handle.
-        #     break
-
-        # if loopFlag == 0:
-        #     if port != None:
-        #         raise IxNetRestApiException('\nError: No port found: {0}'.format(port))
-        #     if portName != None:
-        #         raise IxNetRestApiException('\nError: No portName found: {0}'.format(portName))
-
-        # self.ixnObj.logInfo('\ngetProtocolListByPortNgpf: {0}'.format(str(enabledProtocolList)), timestamp=False)        
-        # return enabledProtocolList
-        '''
-        RestPy implementation
-        '''
-
         l3ProtocolList = ['ancp', 'bfdv4Interface', 'bgpIpv4Peer', 'bgpIpv6Peer', 'dhcpv4relayAgent', 'dhcpv6relayAgent',
                           'geneve', 'greoipv4', 'greoipv6', 'igmpHost', 'igmpQuerier',
                           'lac', 'ldpBasicRouter', 'ldpBasicRouterV6', 'ldpConnectedInterface', 'ldpv6ConnectedInterface',
@@ -3748,89 +3395,6 @@ class Protocol(object):
                             ]
             }]
         """
-        # self.ixnObj.logInfo('{0}...'.format('\ngetProtocolListByIpHostNgpf'), timestamp=False)
-        # container = []
-
-        # # Loop each Topology and search for matching port or portName
-        # response = self.ixnObj.get(self.ixnObj.sessionUrl+'/topology', silentMode=True)
-        # topologyList = ['%s/%s/%s' % (self.ixnObj.sessionUrl, 'topology', str(i["id"])) for i in response.json()]
-        # for topology in topologyList:
-        #     response = self.ixnObj.get(topology, silentMode=True)
-        #     topologyObj = response.json()['links'][0]['href']
-        #     response = self.ixnObj.get(topology+'/deviceGroup', silentMode=True)
-        #     deviceGroupList = ['%s/%s/%s' % (topology, 'deviceGroup', str(i["id"])) for i in response.json()]
-        #     topologyDict = {}
-        #     topology = []
-        #     deviceGroupObjects = []
-
-        #     for deviceGroup in deviceGroupList:
-        #         deviceGroupObj = '/api' + deviceGroup.split('/api')[1]
-        #         response = self.ixnObj.get(deviceGroup+'/ethernet', silentMode=True)
-        #         ethernetList = ['%s/%s/%s' % (deviceGroup, 'ethernet', str(i["id"])) for i in response.json()]
-        #         isHostIpFound = False
-        #         for ethernet in ethernetList:
-        #             ipList = []
-
-        #             # IPv4
-        #             if '.' in hostIp:
-        #                 response = self.ixnObj.get(ethernet+'/ipv4', silentMode=True)
-        #                 ipList = ['%s/%s/%s' % (ethernet, 'ipv4', str(i["id"])) for i in response.json()]
-
-        #             if ':' in hostIp:
-        #                 response = self.ixnObj.get(ethernet+'/ipv6', silentMode=True)
-        #                 ipList = ['%s/%s/%s' % (ethernet, 'ipv6', str(i["id"])) for i in response.json()]
-
-        #             if ipList:
-        #                 for ipObj in ipList:
-        #                     response = self.ixnObj.get(ipObj)
-        #                     multivalue = response.json()['address']
-        #                     ipHostList = self.getMultivalueValues(multivalue)
-
-        #                     if hostIp in ipHostList:
-        #                         if 'topology' not in topologyDict:
-        #                             topologyDict = {'topology': topologyObj, 'deviceGroup': []}
-
-        #                         deviceGroupObjects.append(deviceGroupObj)
-        #                         deviceGroupObjects.append('/api'+ethernet.split('/api')[1])
-        #                         deviceGroupObjects.append('/api'+ipList[0].split('/api')[1])
-        #                         isHostIpFound = True
-
-        #                 if isHostIpFound == False:
-        #                     continue
-
-        #                 for layer3Ip in ipList:
-        #                     url = layer3Ip+'?links=true'
-        #                     response = self.ixnObj.get(url, silentMode=True)
-        #                     for protocol in response.json()['links']:
-        #                         currentProtocol = protocol['href']                            
-        #                         if (bool(re.match('^/api/.*(ipv4|ipv6)/[0-9]+$', currentProtocol))):
-        #                             continue
-        #                         if (bool(re.match('^/api/.*(ipv4|ipv6)/[0-9]+/port$', currentProtocol))):
-        #                             continue
-
-        #                         url = self.ixnObj.httpHeader+currentProtocol
-        #                         response = self.ixnObj.get(url, silentMode=True)
-        #                         if response.json() == []:
-        #                             # The currentProtocol is not configured.
-        #                             continue
-        #                         else:
-        #                             deviceGroupObjects.append(response.json()[0]['links'][0]['href'])
-
-        #         # Done with the current Device Group. Reset deviceGroupObjects for the next DG.
-        #         if isHostIpFound:
-        #             topologyDict['deviceGroup'].insert(len(topologyDict['deviceGroup']), deviceGroupObjects)
-        #             deviceGroupObjects = []
-
-        #     # 'deviceGroup' exists if the ipHost is found.
-        #     # If exists, append it to the current Topology.
-        #     if 'deviceGroup' in topologyDict:
-        #         container.append(topologyDict)
-
-        # return container
-        '''
-        RestPy implementation
-        '''
-        # self.ixnObj.logInfo('{0}...'.format('\ngetProtocolListByIpHostNgpf'), timestamp=False)
         container = []
         l3ProtocolList = ['ancp', 'bfdv4Interface', 'bgpIpv4Peer', 'bgpIpv6Peer', 'dhcpv4relayAgent',
                           'dhcpv6relayAgent', 'geneve', 'greoipv4', 'greoipv6', 'igmpHost', 'igmpQuerier', 'lac',
@@ -3927,133 +3491,14 @@ class Protocol(object):
         Returns
            []|The NGPF endpoint object handle(s) in a list.
         """
-        # returnList = []
-        # self.ixnObj.logInfo('{0}...'.format('\ngetEndpointObjByDeviceGroupName'), timestamp=False)
-        # # Loop each Topology and search for matching port or portName
-        # response = self.ixnObj.get(self.ixnObj.sessionUrl+'/topology', silentMode=False)
-        # topologyList = ['%s/%s/%s' % (self.ixnObj.sessionUrl, 'topology', str(i["id"])) for i in response.json()]
-        # for topology in topologyList:
-        #     response = self.ixnObj.get(topology, silentMode=False)
-        #     topologyObj = response.json()['links'][0]['href']
-        #     response = self.ixnObj.get(topology+'/deviceGroup', silentMode=False)
-
-        #     deviceGroupList = []
-        #     for response in response.json():
-        #         deviceGroupObj = response['links'][0]['href']
-        #         deviceGroupList.append(deviceGroupObj)
-
-        #         # Get inner device group objects also.  Verify if there are additional device groups within a device group.
-        #         response = self.ixnObj.get(self.ixnObj.httpHeader + deviceGroupObj + '/deviceGroup')
-        #         if response.json():
-        #             for response in response.json():
-        #                 deviceGroupList.append(response['links'][0]['href'])
-
-        #     for deviceGroupObj in deviceGroupList:
-        #         response = self.ixnObj.get(self.ixnObj.httpHeader+deviceGroupObj)
-                
-        #         if response.json()['name'] == deviceGroupName:
-        #             if endpointObj == 'topology':
-        #                 return [topologyObj]
-
-        #             if endpointObj == 'deviceGroup':
-        #                 return [deviceGroupObj]
-
-        #             response = self.ixnObj.get(self.ixnObj.httpHeader+deviceGroupObj+'/ethernet', silentMode=False)
-        #             ethernetList = ['%s/%s/%s' % (deviceGroupObj, 'ethernet', str(i["id"])) for i in response.json()]
-        #             if ethernetList == []:
-        #                 continue
-
-        #             if endpointObj == 'ethernet':
-        #                 headlessEthernetList = []
-        #                 for eachEthernetObj in ethernetList:
-        #                     match = re.match('http.*(/api.*)', eachEthernetObj)
-        #                     if match:
-        #                         headlessEthernetList.append(match.group(1))
-        #                 return headlessEthernetList
-
-        #             if endpointObj == 'networkGroup':
-        #                 response = self.ixnObj.get(deviceGroup+'/networkGroup', silentMode=False)
-        #                 networkGroupList = ['%s/%s/%s' % (deviceGroup, 'networkGroup', str(i["id"])) for i in response.json()]
-        #                 headlessNetworkGroupList = []
-        #                 for eachNetworkGroupObj in networkGroupList:
-        #                     match = re.match('http.*(/api.*)', eachNetworkGroupObj)
-        #                     if match:
-        #                         headlessNetworkGroupList.append(match.group(1))
-        #                     return headlessNetworkGroupList
-
-        #             for ethernet in ethernetList:
-        #                 # Dynamically get all Ethernet child endpoints
-        #                 response = self.ixnObj.get(self.ixnObj.httpHeader+ethernet+'?links=true', silentMode=False)
-        #                 for ethernetChild in response.json()['links']:
-        #                     print('Ethernet child:', ethernetChild['href'])
-        #                     currentChildName = ethernetChild['href'].split('/')[-1]
-        #                     if currentChildName == endpointObj:
-        #                         response = self.ixnObj.get(self.ixnObj.httpHeader+ethernetChild['href'])
-        #                         if response.json() == []: 
-        #                             raise IxNetRestApiException('getEndpointObjByDeviceGroupName: The endpointObj you specified "{0}" is not configured. No endpointObj found'.format(endpointObj))
-
-        #                         returnList.append(response.json()[0]['links'][0]['href'])
-
-        #                     # Search IPv4/IPv6
-        #                     if currentChildName in ['ipv4'] or currentChildName in ['ipv6']:
-        #                         l3Obj = currentChildName
-        #                         response = self.ixnObj.get(self.ixnObj.httpHeader+ethernet+'/'+l3Obj+'?links=true', silentMode=True)
-        #                         if response.json() == []:
-        #                             # L3 is not configured
-        #                             continue
-
-        #                         for child in response.json():
-        #                             for l3Child in child['links']:
-        #                                 print('L3Child:', l3Child['href'])
-        #                                 currentL3ChildName = l3Child['href'].split('/')[-1]
-        #                                 if currentL3ChildName == endpointObj:
-        #                                     response = self.ixnObj.get(self.ixnObj.httpHeader+l3Child['href'], silentMode=True)
-        #                                     if response.json() == []: 
-        #                                         raise IxNetRestApiException('getEndpointObjByDeviceGroupName: The endpointObj you specified "{0}" is not configured. No endpointObj found.'.format(endpointObj))
-
-        #                                     returnList.append(l3Child['href'])
-                                    
-        # return returnList
-
-        '''
-        RestPy implementation
-        '''
-        # if deviceGroupName is None:
-        #     if eval('self.ixNetwork.Topology.find().DeviceGroup.find().Ethernet.find().'+ endpointObj +'.find()'):
-        #         obj = eval('self.ixNetwork.Topology.find().DeviceGroup.find().Ethernet.find().'+ endpointObj +'.find()')
-        #         return obj
-        #     if eval('self.ixNetwork.Topology.find().DeviceGroup.find().Ethernet.find().Ipv6.find().'+ endpointObj +'.find()'):
-        #         obj = eval('self.ixNetwork.Topology.find().DeviceGroup.find().Ethernet.find().Ipv6.find().'+ endpointObj +'.find()')
-        #         return obj
-        #     if eval('self.ixNetwork.Topology.find().DeviceGroup.find().Ethernet.find().Ipv4.find().'+ endpointObj +'.find()'):
-        #         obj = eval('self.ixNetwork.Topology.find().DeviceGroup.find().Ethernet.find().Ipv4.find().'+ endpointObj +'.find()')
-        #         return obj
-        # else:
         devGrpObj = self.ixNetwork.Topology.find().DeviceGroup.find(Name=deviceGroupName)
         try:
-            # if eval('devGrpObj.Ethernet.find().'+ endpointObj +'.find()'):
-            #     obj = eval('devGrpObj.Ethernet.find().'+ endpointObj +'.find()')
-            #     return obj
-            # if eval('devGrpObj.Ethernet.find().Ipv6.find().'+ endpointObj +'.find()'):
-            #     obj = eval('devGrpObj.Ethernet.find().Ipv6.find().'+ endpointObj +'.find()')
-            #     return obj
             if eval('devGrpObj.Ethernet.find().Ipv4.find().'+ endpointObj +'.find()'):
                 obj = eval('devGrpObj.Ethernet.find().Ipv4.find().'+ endpointObj +'.find()')
                 print("returning obj", obj)
                 return obj
         except:
-            print("exception")
-
-        # protoReturnList = []
-        # if eval('self.ixNetwork.Topology.find().DeviceGroup.find(deviceGroupName).Ethernet.find().Ipv4.find().'+ endpointObj +'.find()'):
-        #     protoObj = 'self.ixNetwork.Topology.find().DeviceGroup.find(deviceGroupName).Ethernet.find().Ipv4.find().'+ endpointObj  +'.find()'
-        #     protoReturnList.append(protoObj)
-        # if eval('self.ixNetwork.Topology.find().DeviceGroup.find(deviceGroupName).Ethernet.find().Ipv6.find().'+ endpointObj +'.find()'):
-        #     protoObj = 'self.ixNetwork.Topology.find().DeviceGroup.find(deviceGroupName).Ethernet.find().Ipv6.find().'+ endpointObj +'.find()'
-        #     protoReturnList.append(protoObj)
-        # if eval('self.ixNetwork.Topology.find().DeviceGroup.find(deviceGroupName).Ethernet.find().'+ endpointObj +'.find()'):
-        #     protoObj = 'self.ixNetwork.Topology.find().DeviceGroup.find(deviceGroupName).Ethernet.find().'+ endpointObj +'.find()'
-        #     protoReturnList.append(protoObj)
+            return []
 
     def getProtocolObjFromProtocolList(self, protocolList, protocol, deviceGroupName=None):
         """
@@ -4092,51 +3537,6 @@ class Protocol(object):
             The protocol object handle in a list. For example:
             ['/api/v1/sessions/1/ixnetwork/topology/2/deviceGroup/2/ethernet/1/ipv4/1/bgpIpv4Peer']
         """
-        # self.ixnObj.logInfo('\n{0}...'.format('\ngetProtocolObjFromProtocolList'), timestamp=False)
-        # protocolObjectHandleList = []
-
-        # for protocols in protocolList:
-        #     if protocol in ['deviceGroup', 'ethernet', 'ipv4', 'ipv6']:
-        #         for endpointObj in protocols:
-        #             if protocol == 'deviceGroup':
-        #                 # Include the deviceGroup object handle also
-        #                 match = re.search(
-        #                     r'(/api/v1/sessions/[0-9]+/ixnetwork/topology/[0-9]+/deviceGroup/[0-9]+)$', endpointObj)
-
-        #                 if match:
-        #                     # A topology could have multiple Device Groups. Filter by the Device Group name.
-        #                     if deviceGroupName:
-        #                         deviceGroupObj = match.group(1)
-        #                         response = self.ixnObj.get(self.ixnObj.httpHeader + deviceGroupObj, silentMode=True)
-        #                         if deviceGroupName == response.json()['name']:
-        #                             self.ixnObj.logInfo(str([endpointObj]), timestamp=False)
-        #                             return [endpointObj]
-        #                     else:
-        #                         protocolObjectHandleList.append(endpointObj)
-
-        #             # Search for the protocol after the deviceGroup endpoint.
-        #             match = re.search(r'(/api/v1/sessions/[0-9]+/ixnetwork/topology/[0-9]+/deviceGroup/[0-9]+).*/%s/[0-9]+$' % protocol, endpointObj)
-        #             if match:
-        #                 # A topology could have multiple Device Groups. Filter by the Device Group name.
-        #                 if deviceGroupName:
-        #                     deviceGroupObj = match.group(1)
-        #                     response = self.ixnObj.get(self.ixnObj.httpHeader + deviceGroupObj, silentMode=True)
-        #                     if deviceGroupName == response.json()['name']:
-        #                         self.ixnObj.logInfo(str([endpointObj]), timestamp=False)
-        #                         return [endpointObj]
-        #                 else:
-        #                     protocolObjectHandleList.append(endpointObj)
-        #     else:
-        #         if any(protocol in x for x in protocols):
-        #             index = [index for index, item in enumerate(protocols) if protocol in item]
-        #             protocolObjectHandle = protocols[index[0]]
-        #             self.ixnObj.logInfo('Appending protocol: %s' % str([protocolObjectHandle]), timestamp=False)
-        #             protocolObjectHandleList.append(protocolObjectHandle)
-
-        # return protocolObjectHandleList
-        '''
-        RestPy implementation
-        '''
         protoReturnList = []
         if deviceGroupName is None:
             vportList = self.ixNetwork.Vport.find()
@@ -4201,53 +3601,14 @@ class Protocol(object):
                    ['/api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1',
                     '/api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/2/ethernet/1/ipv4/1']   
         """
-        # self.ixnObj.logInfo('{0}...'.format('\ngetProtocolObjFromHostIp'), timestamp=False)
-        # objectHandle = []
-
-        # for element in topologyList:
-        #     if protocol == 'topology':
-        #         return element['topology']
-            
-        #     self.ixnObj.logInfo('\nTopologyGroup: {0}'.format(element['topology']), timestamp=False)
-
-        #     for eachDeviceGroup in element['deviceGroup']:                
-        #         self.ixnObj.logInfo('\n{0}'.format(eachDeviceGroup), timestamp=False)
-
-        #         # Example: deviceGroupEndpoint are:
-        #         #    /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1
-        #         #    /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1
-        #         #    /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1
-        #         #    /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1/bgpIpv4Peer/1
-        #         #    /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv6/2/ldpv6ConnectedInterface/1
-        #         for deviceGroupEndpoint in eachDeviceGroup:
-        #             if protocol in ['deviceGroup', 'networkGroup', 'ethernet', 'ipv4', 'ipv6']:
-        #                 match = re.search(r'(/api/v1/sessions/[0-9]+/ixnetwork/topology/[0-9]+.*%s/[0-9]+)$' % protocol,
-        #                                   deviceGroupEndpoint)
-        #                 if match:
-        #                     objectHandle.append(deviceGroupEndpoint)
-        #             else:
-        #                 if protocol in deviceGroupEndpoint:
-        #                     objectHandle.append(deviceGroupEndpoint)
-
-        # if objectHandle:
-        #     self.ixnObj.logInfo('\nObject handles: {0}'.format(str(objectHandle)), timestamp=False)
-        #     return objectHandle
-        '''
-        RestPy implementation
-        '''
-        # self.ixnObj.logInfo('{0}...'.format('\ngetProtocolObjFromHostIp'), timestamp=False)
         objectHandle = []
 
         for element in topologyList:
             if protocol == 'topology':
                 objectHandle.append(element['topology'])
                 return objectHandle
-            
-            # self.ixnObj.logInfo('\nTopologyGroup: {0}'.format(element['topology']), timestamp=False)
 
-            for eachDeviceGroup in element['deviceGroup']:                
-                # self.ixnObj.logInfo('\n{0}'.format(eachDeviceGroup), timestamp=False)
-
+            for eachDeviceGroup in element['deviceGroup']:
                 # Example: deviceGroupEndpoint are:
                 #    /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1
                 #    /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1
@@ -5548,69 +4909,6 @@ class Protocol(object):
            protocolObj.getNgpfObjectHandleByName(ngpfEndpointObject='ipv4PrefixPools', ngpfEndpointName='Basic IPv4 Addresses 1')
                  return objectHandle: /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/networkGroup1/ipv4PrefixPools/1
         """
-        # ngpfMainObjectList = ['topology', 'deviceGroup', 'ethernet', 'ipv4', 'ipv6',
-        #                       'networkGroup', 'ipv4PrefixPools', 'ipv6PrefixPools']
-
-        # ngpfL2ObjectList = ['isisL3', 'lacp', 'mpls']
-
-        # ngpfL3ObjectList = ['ancp', 'bfdv4Interface', 'bgpIpv4Peer', 'bgpIpv6Peer', 'dhcpv4relayAgent', 'dhcpv6relayAgent',
-        #                     'geneve', 'greoipv4', 'greoipv6', 'igmpHost', 'igmpQuerier',
-        #                     'lac', 'ldpBasicRouter', 'ldpBasicRouterV6', 'ldpConnectedInterface', 'ldpv6ConnectedInterface',
-        #                     'ldpTargetedRouter', 'ldpTargetedRouterV6', 'lns', 'mldHost', 'mldQuerier', 'ptp', 'ipv6sr',
-        #                     'openFlowController', 'openFlowSwitch', 'ospfv2', 'ospfv3', 'ovsdbcontroller', 'ovsdbserver',
-        #                     'pcc', 'pce', 'pcepBackupPCEs', 'pimV4Interface', 'pimV6Interface', 'ptp', 'rsvpteIf',
-        #                     'rsvpteLsps', 'tag', 'vxlan'
-        #                 ]
-        
-        # if ngpfEndpointObject not in ngpfL2ObjectList+ngpfL3ObjectList+ngpfMainObjectList:
-        #     raise IxNetRestApiException('\nError: No such ngpfEndpointObject: %s' % ngpfEndpointObject)
-
-        # if ngpfEndpointObject in ngpfL2ObjectList + ngpfL3ObjectList:
-        #     if ngpfEndpointObject in ngpfL2ObjectList:
-        #         nodesList = [{'node': 'topology', 'properties': [], 'where': []},
-        #                      {'node': 'deviceGroup', 'properties': [], 'where': []},
-        #                      {'node': 'ethernet', 'properties': [], 'where': []}
-        #         ]
-
-        #     if ngpfEndpointObject in ngpfL3ObjectList:
-        #         nodesList = [{'node': 'topology', 'properties': [], 'where': []},
-        #                      {'node': 'deviceGroup', 'properties': [], 'where': []},
-        #                      {'node': 'ethernet', 'properties': [], 'where': []},
-        #                      {'node': 'ipv4', 'properties': [], 'where': []},
-        #                      {'node': 'ipv6', 'properties': [], 'where': []}
-        #         ]
-
-        #     nodesList.insert(len(nodesList), {'node': ngpfEndpointObject, 'properties': ['name'],
-        #                                       'where': [{'property': 'name', 'regex': ngpfEndpointName}]})
-
-        # # Get the NGPF top level objects that are not a protocol:
-        # #    topology, deviceGroup, ethernet, ipv4, ipv6, networkGroup ...
-        # if ngpfEndpointObject not in ngpfL2ObjectList + ngpfL3ObjectList:
-        #     nodesList = []
-        #     # Get the index position of the ngptEndpointObject in the ngpfMainObjectList
-        #     ngpfEndpointIndex = ngpfMainObjectList.index(ngpfEndpointObject)
-        #     # Example:
-        #     #    If ngpfEndpointObject is 'ethernet',
-        #     #    then do a for loop from the topology level to the ethernet level.
-        #     for eachNgpfEndpoint in ngpfMainObjectList[:ngpfEndpointIndex+1]:
-        #         # topology, deviceGroup, ethernet, ipv4, ipv6, networkGroup ...
-        #         if eachNgpfEndpoint == ngpfEndpointObject:
-        #             nodesList.append({'node': eachNgpfEndpoint, 'properties': ['name'],
-        #                               'where': [{'property': 'name', 'regex': ngpfEndpointName}]})
-        #         else:
-        #             nodesList.append({'node': eachNgpfEndpoint, 'properties': [], 'where': []})
-
-        # queryData = {'from': '/', 'nodes': nodesList}
-        # queryResponse = self.ixnObj.query(data=queryData)
-
-        # # Get a list of all the nested keys
-        # objectHandle = self.getObject(keys=queryResponse.json()['result'][0], ngpfEndpointName=ngpfEndpointName)
-        # self.ixnObj.logInfo('getNgpfObjectHandleByName: %s' % objectHandle)
-        # return objectHandle
-
-        '''
-        RestPy implementation
-        '''
         ngpfMainObjectList = ['topology', 'deviceGroup', 'ethernet', 'ipv4', 'ipv6',
                       'networkGroup', 'ipv4PrefixPools', 'ipv6PrefixPools']
         ngpfL2ObjectList = ['isisL3', 'lacp', 'mpls']
@@ -5656,7 +4954,7 @@ class Protocol(object):
             else:
                 eachNgpfEndpoint = eachNgpfEndpoint[0:1].capitalize() + eachNgpfEndpoint[1:]
                 obj = eval('obj.' + eachNgpfEndpoint + ".find(Name=ngpfEndpointName)")
-        # self.ixnObj.logInfo('getNgpfObjectHandleByName: %s' % obj)
+        self.ixnObj.logInfo('getNgpfObjectHandleByName: %s' % obj)
         return obj
 
     def getNgpfObjectHandleByRouterId(self, ngpfEndpointObject, routerId):
@@ -5689,62 +4987,6 @@ class Protocol(object):
               protocolObj.getNgpfObject(ngpfEndpointObject='ipv4PrefixPools', routerId='193.0.0.1')
                  return objectHandle: /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/networkGroup1/ipv4PrefixPools/1
         """
-        # ngpfMainObjectList = ['topology', 'deviceGroup', 'ethernet', 'ipv4', 'ipv6',
-        #                       'networkGroup', 'ipv4PrefixPools', 'ipv6PrefixPools']
-
-        # ngpfL2ObjectList = ['isisL3', 'lacp', 'mpls']
-
-        # ngpfL3ObjectList = ['ancp', 'bfdv4Interface', 'bgpIpv4Peer', 'bgpIpv6Peer', 'dhcpv4relayAgent', 'dhcpv6relayAgent',
-        #                     'geneve', 'greoipv4', 'greoipv6', 'igmpHost', 'igmpQuerier',
-        #                     'lac', 'ldpBasicRouter', 'ldpBasicRouterV6', 'ldpConnectedInterface', 'ldpv6ConnectedInterface',
-        #                     'ldpTargetedRouter', 'ldpTargetedRouterV6', 'lns', 'mldHost', 'mldQuerier', 'ptp', 'ipv6sr',
-        #                     'openFlowController', 'openFlowSwitch', 'ospfv2', 'ospfv3', 'ovsdbcontroller', 'ovsdbserver',
-        #                     'pcc', 'pce', 'pcepBackupPCEs', 'pimV4Interface', 'pimV6Interface', 'ptp', 'rsvpteIf',
-        #                     'rsvpteLsps', 'tag', 'vxlan'
-        #                 ]
-        
-        # if ngpfEndpointObject not in ngpfL2ObjectList + ngpfL3ObjectList + ngpfMainObjectList:
-        #     raise IxNetRestApiException('\nError: No such ngpfEndpointObject: %s' % ngpfEndpointObject)
-
-        # if ngpfEndpointObject in ngpfL2ObjectList + ngpfL3ObjectList:
-        #     if ngpfEndpointObject in ngpfL2ObjectList:
-        #         nodesList = [{'node': 'topology', 'properties': [], 'where': []},
-        #                      {'node': 'deviceGroup', 'properties': [], 'where': []},
-        #                      {'node': 'routerData', 'properties': ['routerId'], 'where': []},
-        #                      {'node': 'ethernet', 'properties': [], 'where': []}
-        #         ]
-
-        #     if ngpfEndpointObject in ngpfL3ObjectList:
-        #         nodesList = [{'node': 'topology', 'properties': [], 'where': []},
-        #                      {'node': 'deviceGroup', 'properties': [], 'where': []},
-        #                      {'node': 'routerData', 'properties': ['routerId'], 'where': []},
-        #                      {'node': 'ethernet', 'properties': [], 'where': []},
-        #                      {'node': 'ipv4', 'properties': [], 'where': []},
-        #                      {'node': 'ipv6', 'properties': [], 'where': []}
-        #         ]
-
-        #     # Add the protocol level to the end of the list.
-        #     nodesList.insert(len(nodesList), {'node': ngpfEndpointObject, 'properties': [], 'where': []})
-
-        # # User is looking for non protocol object handle such as deviceGroup, ethernet, ipv4 or ipv6
-        # if ngpfEndpointObject not in ngpfL2ObjectList + ngpfL3ObjectList:
-        #         nodesList = [{'node': 'topology', 'properties': [], 'where': []},
-        #                      {'node': 'deviceGroup', 'properties': [], 'where': []},
-        #                      {'node': 'networkGroup', 'properties': [], 'where': []},
-        #                      {'node': 'ethernet', 'properties': [], 'where': []},
-        #                      {'node': 'ipv4PrefixPools', 'properties': [], 'where': []},
-        #                      {'node': 'ipv6Prefixpools', 'properties': [], 'where': []},
-        #                      {'node': 'routerData', 'properties': ['routerId'], 'where': []},
-        #                      {'node': 'ethernet', 'properties': [], 'where': []},
-        #                      {'node': 'ipv4', 'properties': [], 'where': []},
-        #                      {'node': 'ipv6', 'properties': [], 'where': []}
-        #         ]
-
-        # queryData = {'from': '/', 'nodes': nodesList}
-        # queryResponse = self.ixnObj.query(data=queryData)
-        '''
-        RestPy implementation
-        '''
         ngpfMainObjectList = ['topology', 'deviceGroup', 'ethernet', 'networkGroup', 'ipv4PrefixPools',
                             'ipv6PrefixPools']
 
@@ -5841,43 +5083,6 @@ class Protocol(object):
             - deviceGroup object handle: /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1
             - None if routerid is not found
         """
-        # if runQuery:
-        #     queryData = {'from': '/',
-        #                 'nodes': [{'node': 'topology',    'properties': ['name'], 'where': []},
-        #                           {'node': 'deviceGroup', 'properties': [], 'where': []},
-        #                           {'node': 'routerData', 'properties': ['routerId'], 'where': []}
-        #                       ]
-        #                 }
-        #     queryResponse = self.ixnObj.query(data=queryData)
-        #     queryDict = queryResponse.json()['result'][0]
-        
-        # object = None
-        # for key,value in queryDict.items():
-        #     # All the Topology Groups
-        #     if type(value) is list:
-        #         for keyValue in value:
-        #             print()
-
-        #             for deepKey,deepValue in keyValue.items():
-        #                 if deepKey == 'routerId':
-        #                     # deepValue = /api/v1/sessions/1/ixnetwork/multivalue/1054
-        #                     # ['192.0.0.1', '192.0.0.2', '192.0.0.3']
-        #                     multivalueObj = deepValue
-        #                     value = self.ixnObj.getMultivalueValues(multivalueObj)
-        #                     if routerId in value:
-        #                         # /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/routerData/1
-        #                         match = re.match('(/api.*)/routerData', keyValue['href'])
-        #                         deviceGroupObj = match.group(1)
-        #                         self.ixnObj.logInfo('deviceGroupHandle for routerId: {0}\n\t{1}'.format(routerId, deviceGroupObj), timestamp=False)
-        #                         return deviceGroupObj
-
-        #             object = self.getDeviceGroupByRouterId(queryDict=keyValue, routerId=routerId, runQuery=False)
-        #             if object is not None:
-        #                 return object
-
-        '''
-        RestPy implementation
-        '''
         deviceGroupObj = None
         routerDataObj = self.ixNetwork.Topology.find().DeviceGroup.find().RouterData.find()
         for eachRouterDataObj in routerDataObj:
@@ -5985,14 +5190,11 @@ class Protocol(object):
         Return
             /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}/ethernet/{id}/ipv6/{id}
         """
-        '''
-        RestPy implementation
-        '''
         if obj is not None:
             if 'ipv6' in obj.href:
                 ipv6Obj = obj
             else:
-                # self.ixnObj.logInfo('Creating new IPv6 in NGPF')
+                self.ixnObj.logInfo('Creating new IPv6 in NGPF')
                 ipv6Obj = obj.Ipv6.add()
                 
         # To modify
@@ -6020,7 +5222,7 @@ class Protocol(object):
 
         # Config IPv6 address
         if 'ipv6Address' in kwargs:
-            # self.ixnObj.logInfo('Configuring IPv6 address. Attribute for multivalueId = jsonResponse["address"]')
+            self.ixnObj.logInfo('Configuring IPv6 address. Attribute for multivalueId = jsonResponse["address"]')
             addrObj = ipv6Obj.Address
             # Default to counter
             multivalueType = 'counter'
@@ -6034,7 +5236,7 @@ class Protocol(object):
             # Config IPv6 port step
             if 'ipv6AddressPortStep' in kwargs:
                 portStepMultivalue = addrObj.Steps.find()
-                # self.ixnObj.logInfo('Configure IPv6 address port step')
+                self.ixnObj.logInfo('Configure IPv6 address port step')
                 if kwargs['ipv6AddressPortStep'] != 'disabled':
                     portStepMultivalue.Step = kwargs['ipv6AddressPortStep']
                 if kwargs['ipv6AddressPortStep'] == 'disabled':
@@ -6042,7 +5244,7 @@ class Protocol(object):
         # Config Gateway
         if 'gateway' in kwargs:
             gatewayObj = ipv6Obj.find().GatewayIp
-            # self.ixnObj.logInfo('Configure IPv6 gateway. Attribute for multivalueId = jsonResponse["gatewayIp"]')
+            self.ixnObj.logInfo('Configure IPv6 gateway. Attribute for multivalueId = jsonResponse["gatewayIp"]')
             # Default to counter
             multivalueType = 'counter'
             data = kwargs['gateway']
@@ -6055,7 +5257,7 @@ class Protocol(object):
             # Config Gateway port step
             if 'gatewayPortStep' in kwargs:
                 portStepMultivalue = gatewayObj.Steps.find()
-                # self.ixnObj.logInfo('Configure IPv6 gateway port step')
+                self.ixnObj.logInfo('Configure IPv6 gateway port step')
                 if kwargs['gatewayPortStep'] != 'disabled':
                     portStepMultivalue.Step = kwargs['gatewayPortStep']
                 if kwargs['gatewayPortStep'] == 'disabled':
@@ -6063,12 +5265,12 @@ class Protocol(object):
         # Config resolve gateway
         if 'resolveGateway' in kwargs:
             resolveGatewayObj = ipv6Obj.find().ResolveGateway
-            # self.ixnObj.logInfo('Configure IPv6 gateway to resolve gateway. Attribute for multivalueId = '
+            self.ixnObj.logInfo('Configure IPv6 gateway to resolve gateway. Attribute for multivalueId = '
                                 # 'jsonResponse["resolveGateway"]')
             self.configMultivalue(resolveGatewayObj, 'singleValue', data={'value': kwargs['resolveGateway']})
         if 'prefix' in kwargs:
             prefixObj = ipv6Obj.find().Prefix
-            # self.ixnObj.logInfo('Configure IPv6 prefix. Attribute for multivalueId = jsonResponse["prefix"]')
+            self.ixnObj.logInfo('Configure IPv6 prefix. Attribute for multivalueId = jsonResponse["prefix"]')
             self.configMultivalue(prefixObj, 'singleValue', data={'value': kwargs['prefix']})
 
         if ipv6Obj not in self.configuredProtocols:
