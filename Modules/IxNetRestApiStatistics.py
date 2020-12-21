@@ -1,6 +1,9 @@
-import re, time
+import re, time , datetime , csv
 from IxNetRestApi import IxNetRestApiException
 from IxNetRestApiFileMgmt import FileMgmt
+from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
+from ixnetwork_restpy.files import Files
+
 
 class Statistics(object):
     def __init__(self, ixnObj=None):
@@ -8,6 +11,7 @@ class Statistics(object):
 
         # For takesnapshot()
         self.fileMgmtObj = FileMgmt(self.ixnObj)
+        self.ixNetObj = ixnObj.ixNetwork
 
     def setMainObject(self, mainObject):
         """
@@ -42,13 +46,10 @@ class Statistics(object):
                NOTE: Not all statistics are listed here.
                   You could get the statistic viewName directly from the IxNetwork GUI in the statistics.
         """
-        buildNumber = float(self.ixnObj.getIxNetworkVersion()[:3])
-        if buildNumber >= 8.5:
-            return self.getStatsData(viewObject=viewObject, viewName=viewName, csvFile=csvFile, csvEnableFileTimestamp=csvEnableFileTimestamp,
+
+        return self.getStatsData(viewObject=viewObject, viewName=viewName, csvFile=csvFile, csvEnableFileTimestamp=csvEnableFileTimestamp,
                                      displayStats=displayStats, silentMode=silentMode, ignoreError=ignoreError)
-        else:
-            return self.getStatsPage(viewObject=viewObject, viewName=viewName, csvFile=csvFile, csvEnableFileTimestamp=csvEnableFileTimestamp,
-                                     displayStats=displayStats, silentMode=silentMode, ignoreError=ignoreError)
+
             
     def getStatsPage(self, viewObject=None, viewName='Flow Statistics', csvFile=None, csvEnableFileTimestamp=False,
                      displayStats=True, silentMode=True, ignoreError=False):
@@ -105,59 +106,15 @@ class Statistics(object):
          Return a dictionary of all the stats: statDict[rowNumber][columnName] == statValue
            Get stats on row 2 for 'Tx Frames' = statDict[2]['Tx Frames']
         """
-        if viewObject == None:
-            breakFlag = 0
-            counterStop = 30
-            for counter in range(1, counterStop+1):
-                viewList = self.ixnObj.get('%s/%s/%s' % (self.ixnObj.sessionUrl, 'statistics', 'view'), silentMode=silentMode)
-                views = ['%s/%s/%s/%s' % (self.ixnObj.sessionUrl, 'statistics', 'view', str(i['id'])) for i in viewList.json()]
-                if silentMode is False:
-                    self.ixnObj.logInfo('\ngetStats: Searching for viewObj for viewName: %s' % viewName)
+        try:
+            TrafficItemStats = StatViewAssistant(self.ixNetObj, viewName)
+        except:
+            raise Exception('getStats: Failed to get stats values')
 
-                for view in views:
-                    # GetAttribute
-                    response = self.ixnObj.get('%s' % view, silentMode=silentMode)
-                    captionMatch = re.match(viewName, response.json()['caption'], re.I)
-                    if captionMatch:
-                        # viewObj: sessionUrl + /statistics/view/11'
-                        viewObject = view
-                        breakFlag = 1
-                        break
-
-                if breakFlag == 1:
-                    break
-
-                if counter < counterStop:
-                    self.ixnObj.logInfo('\nGetting statview [{0}] is not ready. Waiting {1}/{2} seconds.'.format(
-                        viewName, counter, counterStop), timestamp=False)
-                    time.sleep(1)
-                    continue
-                    
-                if counter == counterStop:
-                    if viewObject == None and ignoreError == False:
-                        raise IxNetRestApiException("viewObj wasn't found for viewName: {0}".format(viewName))
-
-                    if viewObject == None and ignoreError == True:
-                        return None
-
-        if silentMode is False:
-            self.ixnObj.logInfo('\n[{0}] viewObj is: {1}'.format(viewName, viewObject))
-
-        for counter in range(0,31):
-            response = self.ixnObj.get(viewObject+'/page', silentMode=silentMode)
-            totalPages = response.json()['totalPages']
-            if totalPages == 'null':
-                self.ixnObj.logInfo('\nGetting total pages is not ready yet. Waiting %d/30 seconds' % counter)
-                time.sleep(1)
-
-            if totalPages != 'null':
-                break
-
-            if counter == 30:
-                raise IxNetRestApiException('getStatsPage failed: Getting total pages')
+        trafficItemStatsDict = {}
+        columnCaptions = TrafficItemStats.ColumnHeaders
 
         if csvFile != None:
-            import csv
             csvFileName = csvFile.replace(' ', '_')
             if csvEnableFileTimestamp:
                 import datetime
@@ -165,47 +122,30 @@ class Statistics(object):
                 if '.' in csvFileName:
                     csvFileNameTemp = csvFileName.split('.')[0]
                     csvFileNameExtension = csvFileName.split('.')[1]
-                    csvFileName = csvFileNameTemp+'_'+timestamp+'.'+csvFileNameExtension
+                    csvFileName = csvFileNameTemp + '_' + timestamp + '.' + csvFileNameExtension
                 else:
-                    csvFileName = csvFileName+'_'+timestamp
+                    csvFileName = csvFileName + '_' + timestamp
 
             csvFile = open(csvFileName, 'w')
             csvWriteObj = csv.writer(csvFile)
-
-        # Get the stat column names
-        columnList = response.json()['columnCaptions']
-        if csvFile != None:
-            csvWriteObj.writerow(columnList)
-
-        flowNumber = 1
-        statDict = {}
-        # Get the stat values
-        for pageNumber in range(1,totalPages+1):
-            self.ixnObj.patch(viewObject+'/page', data={'currentPage': pageNumber}, silentMode=silentMode)
-
-            response = self.ixnObj.get(viewObject+'/page', silentMode=silentMode)
-            statValueList = response.json()['pageValues']
-
-            for statValue in statValueList:
-                if csvFile != None:
-                    csvWriteObj.writerow(statValue[0])
-
-                if displayStats:
-                    self.ixnObj.logInfo('\nRow: %d' % flowNumber, timestamp=False)
-
-                statDict[flowNumber] = {}
-                index = 0
-                for statValue in statValue[0]:
-                    statName = columnList[index]
-                    statDict[flowNumber].update({statName: statValue})
-                    if displayStats:
-                        self.ixnObj.logInfo('\t%s: %s' % (statName, statValue), timestamp=False)
-                    index += 1
-                flowNumber += 1
-
-        if csvFile != None:
+            csvWriteObj.writerow(columnCaptions)
+            for rowNumber, stat in enumerate(TrafficItemStats.Rows):
+                rowStats = stat.RawData
+            for row in rowStats:
+                csvWriteObj.writerow(row)
             csvFile.close()
-        return statDict
+
+        for rowNumber, stat in enumerate(TrafficItemStats.Rows):
+            if displayStats:
+                self.ixnObj.logInfo('\nRow: {}'.format(rowNumber+1),timestamp=False)
+            statsDict = {}
+            for column in columnCaptions:
+                statsDict[column] = stat[column]
+                if displayStats:
+                    self.ixnObj.logInfo('\t%s: %s' % (column, stat[column]), timestamp=False)
+            trafficItemStatsDict[rowNumber + 1] = statsDict
+
+        return trafficItemStatsDict
 
     def getStatsData(self, viewObject=None, viewName='Flow Statistics', csvFile=None, csvEnableFileTimestamp=False,
                      displayStats=True, silentMode=False, ignoreError=False):
@@ -260,67 +200,21 @@ class Statistics(object):
 
          Return a dictionary of all the stats: statDict[rowNumber][columnName] == statValue
            Get stats on row 2 for 'Tx Frames' = statDict[2]['Tx Frames']
+        #Ignore vieobject,silentMode in Restpy as it is taken care by StatViewAssistant internally
+        viewObject = None
+        silentMode = False
+
         """
-        if viewObject == None:
 
-            breakFlag = 0
-            counterStop = 30
-            for counter in range(1, counterStop+1):
-                viewList = self.ixnObj.get('%s/%s/%s' % (self.ixnObj.sessionUrl, 'statistics', 'view'), silentMode=silentMode)
-                views = ['%s/%s/%s/%s' % (self.ixnObj.sessionUrl, 'statistics', 'view', str(i['id'])) for i in viewList.json()]
-                if silentMode is False:
-                    self.ixnObj.logInfo('\ngetStats: Searching for viewObj for viewName: {0}'.format(
-                        viewName), timestamp=False)
+        try:
+            TrafficItemStats = StatViewAssistant(self.ixNetObj, viewName)
+        except:
+            raise Exception('getStats: Failed to get stats values')
 
-                for view in views:
-                    #print('\nview:', view)
-                    response = self.ixnObj.get('%s' % view, silentMode=True)
-                    captionMatch = re.match(viewName, response.json()['caption'], re.I)
-                    if captionMatch:
-                        # viewObj: sessionUrl + /statistics/view/11'
-                        viewObject = view
-                        breakFlag = 1
-                        break
-
-                if breakFlag == 1:
-                    break
-
-                if counter < counterStop:
-                    self.ixnObj.logInfo('\nGetting statview [{0}] is not ready. Waiting {1}/{2} seconds.'.format(
-                        viewName, counter, counterStop), timestamp=False)
-                    time.sleep(1)
-                    continue
-                    
-                if counter == counterStop:
-                    if viewObject == None and ignoreError == False:
-                        raise IxNetRestApiException("viewObj wasn't found for viewName: {0}".format(viewName))
-
-                    if viewObject == None and ignoreError == True:
-                        return None
-
-        if silentMode is False:
-            self.ixnObj.logInfo('\n[{0}] viewObj is: {1}'.format(viewName, viewObject))
-
-        counterStop = 30
-        for counter in range(0, counterStop+1):
-            response = self.ixnObj.get(viewObject+'/data', silentMode=silentMode)
-            totalPages = response.json()['totalPages']
-            #self.ixnObj.logInfo('totalPages: {0}'.format(totalPages), timestamp=False)
-
-            if totalPages == 'null' and counter < counterStop:
-                self.ixnObj.logInfo('\nGetting total pages is not ready yet. Waiting {0}/{1} seconds'.format(
-                    counter, counterStop), timestamp=False)
-                time.sleep(1)
-                continue
-
-            if totalPages != 'null' and counter < counterStop:
-                break
-
-            if counter == counterStop:
-                raise IxNetRestApiException('getStats failed: Getting total pages')
+        trafficItemStatsDict = {}
+        columnCaptions = TrafficItemStats.ColumnHeaders
 
         if csvFile != None:
-            import csv
             csvFileName = csvFile.replace(' ', '_')
             if csvEnableFileTimestamp:
                 import datetime
@@ -328,72 +222,38 @@ class Statistics(object):
                 if '.' in csvFileName:
                     csvFileNameTemp = csvFileName.split('.')[0]
                     csvFileNameExtension = csvFileName.split('.')[1]
-                    csvFileName = csvFileNameTemp+'_'+timestamp+'.'+csvFileNameExtension
+                    csvFileName = csvFileNameTemp + '_' + timestamp + '.' + csvFileNameExtension
                 else:
-                    csvFileName = csvFileName+'_'+timestamp
+                    csvFileName = csvFileName + '_' + timestamp
 
             csvFile = open(csvFileName, 'w')
             csvWriteObj = csv.writer(csvFile)
-
-        flowNumber = 1
-        statDict = {}
-        getColumnCaptionFlag = 0
-        for pageNumber in range(1,totalPages+1):
-            self.ixnObj.patch(viewObject+'/data', data={'currentPage': pageNumber}, silentMode=silentMode)
-
-            counterStop = 30
-            for counter in range(1, counterStop+1):
-                response = self.ixnObj.get(viewObject+'/data', silentMode=silentMode)
-                if counter < counterStop:
-                    if response.json()['columnCaptions'] == [] or response.json()['pageValues'] == []:
-                        self.ixnObj.logInfo('[{0}] stat values not ready yet. Wait {1}/{2} seconds.'.format(
-                            viewName, counter, counterStop))
-                        time.sleep(1)
-                        continue
-
-                    if response.json()['columnCaptions'] != [] or response.json()['pageValues'] != []:
-                        break
-
-                if counter == counterStop:
-                    raise IxNetRestApiException('IxNetwork API server failed to provide stats')
-
-            # Get the stat column names one time only
-            if getColumnCaptionFlag == 0:
-                getColumnCaptionFlag = 1
-                columnList = response.json()['columnCaptions']
-                if csvFile != None:
-                    csvWriteObj.writerow(columnList)
-                
-            statValueList = response.json()['pageValues']
-            for statValue in statValueList:
-                if csvFile != None:
-                    csvWriteObj.writerow(statValue[0])
-
-                if displayStats:
-                    self.ixnObj.logInfo('\nRow: %d' % flowNumber, timestamp=False)
-
-                statDict[flowNumber] = {}
-                index = 0
-                for statValue in statValue[0]:
-                    statName = columnList[index]
-                    statDict[flowNumber].update({statName: statValue})
-                    if displayStats:
-                        self.ixnObj.logInfo('\t%s: %s' % (statName, statValue), timestamp=False)
-                    index += 1
-                flowNumber += 1
-
-        if csvFile != None:
+            csvWriteObj.writerow(columnCaptions)
+            for rowNumber, stat in enumerate(TrafficItemStats.Rows):
+                rowStats = stat.RawData
+            for row in rowStats:
+                csvWriteObj.writerow(row)
             csvFile.close()
-        return statDict
+
+        for rowNumber, stat in enumerate(TrafficItemStats.Rows):
+            if displayStats:
+                self.ixnObj.logInfo('\nRow: {}'.format(rowNumber+1),timestamp=False)
+            statsDict = {}
+            for column in columnCaptions:
+                statsDict[column] = stat[column]
+                if displayStats:
+                    self.ixnObj.logInfo('\t%s: %s' % (column, stat[column]), timestamp=False)
+            trafficItemStatsDict[rowNumber + 1] = statsDict
+
+        return trafficItemStatsDict
 
     def removeAllTclViews(self):
         """
         Description
            Removes all created stat views.
         """
-        removeAllTclViewsUrl = self.ixnObj.sessionUrl+'/operations/removealltclviews'
-        response = self.ixnObj.post(removeAllTclViewsUrl)
-        self.ixnObj.waitForComplete(response, self.ixnObj.httpHeader + response.json()['url'])
+        self.ixnObj.logInfo("Remove all tcl views")
+        self.ixNetObj.RemoveAllTclViews()
 
     def takeSnapshot(self, viewName='Flow Statistics', windowsPath=None, isLinux=False, localLinuxPath=None,
                      renameDestinationFile=None, includeTimestamp=False, mode='overwrite'):
@@ -436,8 +296,9 @@ class Statistics(object):
 
         if isLinux:
             location = '/home/ixia_logs'
-
-        data = {'arg1': [viewName], 'arg2': [
+        import pdb
+        pdb.set_trace()
+        self.ixNetObj.TakeViewCSVSnapshot(Arg1=[viewName],Arg2 = [
                             "Snapshot.View.Contents: \"allPages\"",
                             "Snapshot.View.Csv.Location: \"{0}\"".format(location),
                             "Snapshot.View.Csv.GeneratingMode: \"%s\"" % mode,
@@ -446,12 +307,8 @@ class Statistics(object):
                             "Snapshot.View.Csv.FormatTimestamp: \"True\"",
                             "Snapshot.View.Csv.DumpTxPortLabelMap: \"False\"",
                             "Snapshot.View.Csv.DecimalPrecision: \"3\""
-                            ]
-                }
+                            ])
 
-        url = self.ixnObj.sessionUrl+'/operations/takeviewcsvsnapshot'
-        response = self.ixnObj.post(url, data=data)
-        self.ixnObj.waitForComplete(response, self.ixnObj.httpHeader + response.json()['url'])
         if isLinux:
             snapshotFile = location + '/' + viewName + '.csv'
             self.fileMgmtObj.copyFileLinuxToLocalLinux(linuxApiServerPathAndFileName=snapshotFile, localPath=localLinuxPath,
@@ -463,47 +320,21 @@ class Statistics(object):
             self.fileMgmtObj.copyFileWindowsToLocalLinux('{0}\\{1}.csv'.format(windowsPath, viewName), localLinuxPath,
                                                          renameDestinationFile=renameDestinationFile,
                                                          includeTimestamp=includeTimestamp)
+        try:
+            self.ixNetObj.CopyFile(Files(location + "\\" + viewName + ".csv"), localLinuxPath+"/" + viewName + ".csv")
+        except:
+            self.ixNetObj.CopyFile(Files(location + "/" + viewName + ".csv"), localLinuxPath+"/" + viewName + ".csv")
 
     def getViewObject(self, viewName='Flow Statistics'):
         """
-        Description
-            To get just the statistic view object.
-            Mainly used by internal APIs such as takeCsvSnapshot that
-            requires the statistics view object handle.
-
-        Parameter
-         viewName:  Options (case sensitive):
-            "Port Statistics"
-            "Tx-Rx Frame Rate Statistics"
-            "Port CPU Statistics"
-            "Global Protocol Statistics"
-            "Protocols Summary"
-            "Port Summary"
-            "OSPFv2-RTR Drill Down"
-            "OSPFv2-RTR Per Port"
-            "IPv4 Drill Down"
-            "L2-L3 Test Summary Statistics"
-            "Flow Statistics"
-            "Traffic Item Statistics"
+        Not Rquired in Restpy
         """
-        self.ixnObj.logInfo('\ngetStats: %s' % viewName)
-        viewList = self.ixnObj.get("%s/%s/%s" % (self.ixnObj.sessionUrl, "statistics", "view"))
-        views = ["%s/%s/%s/%s" % (self.ixnObj.sessionUrl, "statistics", "view", str(i["id"])) for i in viewList.json()]
-        for view in views:
-            # GetAttribute
-            response = self.ixnObj.get(view)
-            caption = response.json()["caption"]
-            if viewName == caption:
-                # viewObj: sessionUrl + "/statistics/view/11"
-                viewObj = view
-                return viewObj
-        return None
+        pass
 
     def clearStats(self):
         """
         Description
             Clear all stats and wait for API server to finish.
         """
-        url = self.ixnObj.sessionUrl + '/operations/clearstats'
-        response = self.ixnObj.post(url, data={'arg1': ['waitForPortStatsRefresh']})
-        self.ixnObj.waitForComplete(response, self.ixnObj.httpHeader + response.json()['url'])
+        self.ixnObj.logInfo("Clearing all statistics")
+        self.ixNetObj.ClearStats(Arg1= ['waitForPortStatsRefresh'])
