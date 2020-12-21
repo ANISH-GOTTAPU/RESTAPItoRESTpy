@@ -190,78 +190,60 @@ class Traffic(object):
 
         Return: trafficItemObj, endpointSetObjList, configElementObjList
         """
-        # if mode == 'create':
-        #     trafficItemUrl = self.ixnObj.sessionUrl+'/traffic/trafficItem'
-        if mode == 'modify' and obj is None:
+
+               if mode == 'modify' and obj is None:
             raise IxNetRestApiException('Modifying Traffic Item requires a Traffic Item object')
         if mode == 'create' and trafficItem is None:
             raise IxNetRestApiException('Creating Traffic Item requires trafficItem kwargs')
-        if mode is None:
+        if mode == None:
             raise IxNetRestApiException('configTrafficItem Error: Must include mode: config or modify')
 
-        if mode == 'create' and trafficItem is not None:
+        if mode == 'create' and trafficItem != None:
             trafficItemObj = self.ixNetwork.Traffic.TrafficItem.add()
+
             for item in trafficItem.keys():
                 if item != 'trackBy':
                     itemObj = item[0:1].capitalize() + item[1:]
                     eval("trafficItemObj." + "update(" + itemObj + " =  trafficItem[item])")
+                else:
+                    trafficItemObj.Tracking.find().Values = trafficItem['trackBy']
 
-            if 'name' in trafficItem:
-                trafficItemObj.Name = trafficItem['name']
-
-            if 'trafficType' in trafficItem:
-                trafficItemObj.TrafficType = trafficItem['trafficType']
-
-            if 'biDirectional' in trafficItem:
-                trafficItemObj.BiDirectional = trafficItem['biDirectional']
-
-            if 'srcDestMesh' in trafficItem:
-                trafficItemObj.SrcDestMesh = trafficItem['srcDestMesh']
-
-            if 'routeMesh' in trafficItem:
-                trafficItemObj.RouteMesh = trafficItem['routeMesh']
-
-            if 'allowSelfDestined' in trafficItem:
-                trafficItemObj.AllowSelfDestined = trafficItem['allowSelfDestined']
-
-            if 'trackBy' in trafficItem:
-                # trafficItemObj.find().Tracking.find().TrackBy = trafficItem['trackBy'][0]
-                trafficItemObj.Tracking.find().Values = trafficItem['trackBy']
-
-            if endpoints is not None and trafficItemObj is not None:
+        if endpoints is not None and trafficItemObj is not None:
                 # endPointSetValues = endpoints
                 for endPoint in endpoints:
                     endPointSetObj = trafficItemObj.EndpointSet.add(Name=endPoint['name'],
                                                                     Sources=endPoint['sources'],
                                                                     Destinations=endPoint['destinations'])
 
-            if configElements != "" and trafficItemObj is not None:
-                configElementObj = trafficItemObj.ConfigElement.find()
-                configElementsValues = configElements
+        if configElements != "" and trafficItemObj is not None:
+            configElementObj = trafficItemObj.ConfigElement.find()
+            # configElementsValues = configElements
 
-                for configElementItem in configElementsValues:
-                    if 'transmissionType' in configElementItem:
-                        configElementObj.TransmissionControl.Type = configElementItem['transmissionType']
-                    if 'frameCount' in configElementItem:
-                        configElementObj.TransmissionControl.FrameCount = configElementItem['frameCount']
-                    if 'frameRate' in configElementItem:
-                        configElementObj.FrameRate.update(Rate=configElementItem['frameRate'])
-                    if 'frameRateType' in configElementItem:
-                        configElementObj.FrameRate.Type = configElementItem['frameRateType']
-                    if 'frameSize' in configElementItem:
-                        configElementObj.FrameSize.update(FixedSize=configElementItem['frameSize'])
-                    if 'portDistribution' in configElementItem:
-                        configElementObj.FrameRateDistribution.PortDistribution = configElementItem[
-                            'portDistribution']
-                    if 'streamDistribution' in configElementItem:
-                        configElementObj.FrameRateDistribution.StreamDistribution = configElementItem[
-                            'streamDistribution']
+            for item in configElements.keys():
+                itemObj = item[0:1].capitalize() + item[1:]
+                eval("configElementObj." + "update(" + itemObj + " =  configElements[item])")
 
         elif mode == 'modify':
             if trafficItem['name'] != "":
-                trafficItemObj = self.ixNetwork.Traffic.TrafficItem.find(Name=trafficItem['name'])
-            if trafficItem['trackBy'] != "":
-                trafficItemObj.Tracking.find()
+                trafficItemObj = self.ixNetwork.Traffic.TrafficItem.find(Name = trafficItem['name'])
+
+                for item in trafficItem.keys():
+                    if item != 'trackBy':
+                        itemObj = item[0:1].capitalize() + item[1:]
+                        eval("trafficItemObj." + "update(" + itemObj + " =  trafficItem[item])")
+                    else:
+                        trafficItemObj.Tracking.find().Values = trafficItem['trackBy']
+
+                if endpoints is not None and trafficItemObj is not None:
+                # endPointSetValues = endpoints
+                    for endPoint in endpoints:
+                        if 'name' in endPoint:
+                            endPointSetObj = trafficItemObj.EndpointSet.find(name=endPoint['name'])
+                            endPointSetObj.update(Sources=endPoint['sources'], Destinations=endPoint['destinations'])
+                        else:
+                            endPointSetObj = trafficItemObj.EndpointSet.add(Name=endPoint['name'],
+                                                                            Sources=endPoint['sources'],
+                                                                            Destinations=endPoint['destinations'])
 
         return [trafficItemObj, endPointSetObj, configElementObj]
 
@@ -1083,35 +1065,30 @@ class Traffic(object):
         Return
             1: If failed.
         """
-        currentTrafficState = None
         if type(expectedState) != list:
             expectedState.split(' ')
 
-        self.ixnObj.logInfo('checkTrafficState: Expecting state: {0}\n'.format(expectedState))
-        for counter in range(1, timeout + 1):
-            # response = self.ixnObj.get(self.ixnObj.sessionUrl+'/traffic', silentMode=True)
+        for counter in range(1,timeout+1):
             currentTrafficState = self.ixNetwork.Traffic.State
             if currentTrafficState == 'unapplied':
                 self.ixnObj.logWarning('\nCheckTrafficState: Traffic is UNAPPLIED')
-                self.applyTraffic()
-
-            self.ixnObj.logInfo('\ncheckTrafficState: {trafficState}: Expecting: {expectedStates}.'.
-                                format(trafficState=currentTrafficState, expectedStates=expectedState), timestamp=False)
-            self.ixnObj.logInfo('\tWaited {counter}/{timeout} seconds'.format(counter=counter, timeout=timeout),
-                                timestamp=False)
-
+                # self.applyTraffic()
+                if self.ixNetwork.Traffic.IsApplicationTrafficRunning:
+                    self.ixNetwork.Traffic.ApplyOnTheFlyTrafficChanges()
+                else:
+                    self.ixNetwork.Traffic.Apply()
+            
             if counter <= timeout and currentTrafficState not in expectedState:
                 time.sleep(1)
                 continue
 
             if counter <= timeout and currentTrafficState in expectedState:
                 time.sleep(8)
-                self.ixnObj.logInfo('checkTrafficState: Done\n')
                 return 0
-
-        if not ignoreException:
-            raise IxNetRestApiException('checkTrafficState: Traffic state did not reach the expected state(s): {0}. '
-                                        'It is at: {1}'.format(expectedState, currentTrafficState))
+        
+        if ignoreException == False:
+            raise IxNetRestApiException('checkTrafficState: Traffic state did not reach the expected state(s): {0}. It is at: {1}'.format(
+                expectedState, currentTrafficState))
         else:
             return 1
 
@@ -1184,22 +1161,7 @@ class Traffic(object):
         Return
             A list of Traffic Items
         """
-        trafficItemObjList = []
-        numOfTrafficItem = 0
-        response = self.ixnObj.get(
-            self.ixnObj.sessionUrl + '/traffic/trafficItem' + "?skip=" + str(numOfTrafficItem) + "&take=100")
-
-        while numOfTrafficItem < response.json()['count']:
-            for eachTrafficItem in response.json()['data']:
-                if getEnabledTrafficItemsOnly:
-                    if eachTrafficItem['enabled']:
-                        trafficItemObjList.append(eachTrafficItem['links'][0]['href'])
-                else:
-                    trafficItemObjList.append(eachTrafficItem['links'][0]['href'])
-            numOfTrafficItem += 100
-            response = self.ixnObj.get(
-                self.ixnObj.sessionUrl + '/traffic/trafficItem' + "?skip=" + str(numOfTrafficItem) + "&take=100")
-
+        trafficItemObjList = self.ixNetwork.Traffic.TrafficItem.find()
         return trafficItemObjList
 
     def getAllTrafficItemNames(self):
@@ -1320,23 +1282,22 @@ class Traffic(object):
                    trafficObj.checkTrafficState(expectedState=['started', 'startedWaitingForStats'], timeout=45)
         """
         if regenerateTraffic:
-            self.regenerateTrafficItems()
+            self.ixNetwork.Traffic.TrafficItem.find().Generate()
 
+        time.sleep(2)
         if applyTraffic:
-            self.applyTraffic()
+            if self.ixNetwork.Traffic.IsApplicationTrafficRunning:
+                self.ixNetwork.Traffic.ApplyOnTheFlyTrafficChanges()
+            else:
+                self.ixNetwork.Traffic.Apply()
 
-        if not blocking:
-            url = self.ixnObj.sessionUrl + '/traffic/operations/start'
-            response = self.ixnObj.post(url, data={'arg1': self.ixnObj.sessionUrl + '/traffic'})
-            self.ixnObj.waitForComplete(response, url + '/' + response.json()['id'], timeout=120)
+        if blocking == False:
+            self.ixNetwork.Traffic.Start()
 
         # Server will go into blocking state until it is ready to accept the next api command.
-        if blocking:
-            enabledTrafficItemList = self.getAllTrafficItemObjects(getEnabledTrafficItemsOnly=True)
-            url = self.ixnObj.sessionUrl + '/traffic/trafficItem/operations/startstatelesstrafficblocking'
-            response = self.ixnObj.post(url, data={'arg1': enabledTrafficItemList})
-            self.ixnObj.waitForComplete(response, url + '/' + response.json()['id'], timeout=120)
-
+        if blocking == True:
+            self.ixNetwork.Traffic.StartStatelessTrafficBlocking()
+            
     def stopTraffic(self, blocking=False):
         """
         Description
@@ -1354,22 +1315,11 @@ class Traffic(object):
                POST: /api/v1/sessions/{id}/ixnetwork/traffic/operations/stop
                DATA: {'arg1': '/api/v1/sessions/{id}/ixnetwork/traffic'}
         """
-        if blocking:
-            enabledTrafficItemList = self.getAllTrafficItemObjects(getEnabledTrafficItemsOnly=True)
-            url = self.ixnObj.sessionUrl + '/traffic/operations/stopstatelesstrafficblocking'
-            response = self.ixnObj.post(url, data={'arg1': enabledTrafficItemList})
-            self.ixnObj.waitForComplete(response, url + '/' + response.json()['id'], timeout=120)
-
-        if not blocking:
-            self.ixnObj.logInfo('stopTraffic: %s' % self.ixnObj.sessionUrl + '/traffic/operations/stop')
-            url = self.ixnObj.sessionUrl + '/traffic/operations/stop'
-            response = self.ixnObj.post(url,
-                                        data={'arg1': '{0}/ixnetwork/traffic'.format(self.ixnObj.headlessSessionId)})
-            self.ixnObj.waitForComplete(response, url + '/' + response.json()['id'], timeout=120)
-
-        self.checkTrafficState(expectedState=['stopped'])
-        time.sleep(3)
-
+        if blocking == True:
+            self.ixNetwork.Traffic.StopStatelessTrafficBlocking()
+        else:
+            self.ixNetwork.Traffic.Stop()
+            
     def showTrafficItems(self):
         """
         Description

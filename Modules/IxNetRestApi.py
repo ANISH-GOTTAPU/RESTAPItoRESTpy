@@ -191,25 +191,34 @@ class Connect:
 
             if type(generateLogFile) != bool:
                 self.restLogFile = generateLogFile
+                
+        if serverOs == 'linux':
+            if self.apiServerPort == None:
+                self.apiServerPort = 443
+            self.testPlatform = TestPlatform(ip_address=self.linuxApiServerIp,
+                                             rest_port=self.apiServerPort,
+                                             platform='linux',
+                                             verify_cert=verifySslCert)
+            self.testPlatform.Authenticate(self.username, self.password)
+            if apiKey != None and sessionId == None:
+                raise IxNetRestApiException('Providing an apiKey must also provide a sessionId.')
+            # Connect to an existing session on the Linux API server
+            if apiKey and sessionId:
+                self.session = self.testPlatform.Sessions.find(Id=sessionId)
 
-        sessionAssistant = SessionAssistant(IpAddress=apiServerIp,
-                                            RestPort=serverIpPort,
-                                            UserName=self.username,
-                                            Password=self.password,
-                                            VerifyCertificates=self.verifySslCert,
-                                            LogFilename=self.generateLogFile,
-                                            LogLevel=SessionAssistant.LOGLEVEL_INFO,
-                                            SessionId=sessionId,
-                                            ApiKey=apiKey)
-        self.ixNetwork = sessionAssistant.Ixnetwork
+            if apiKey == None and sessionId:
+                self.session = self.testPlatform.Sessions.find(Id=sessionId)
+            if apiKey == None and sessionId == None:
+                self.session = self.testPlatform.Sessions.add()
+            self.ixNetwork = self.session.Ixnetwork
+            self.session_name = self.session.Name
 
         if licenseServerIp or licenseMode or licenseTier:
             self.configLicenseServerDetails(licenseServerIp, licenseMode, licenseTier)
-
+            
         # For Linux API Server and Windoww Connection Mgr only: Delete the session when script is done
         self.deleteSessionAfterTest = deleteSessionAfterTest
-
-        if not includeDebugTraceback:
+        if includeDebugTraceback == False:
             sys.tracebacklimit = 0
 
     def get(self, restApi, data={}, stream=False, silentMode=False, ignoreError=False, maxRetries=5):
@@ -229,6 +238,7 @@ class Connect:
         """
         pass
 
+
     def post(self, restApi, data={}, headers=None, silentMode=False, noDataJsonDumps=False, ignoreError=False,
              maxRetries=5):
         """
@@ -246,6 +256,7 @@ class Connect:
         """
         pass
 
+
     def patch(self, restApi, data={}, silentMode=False, ignoreError=False, maxRetries=5):
         """
         Description
@@ -260,6 +271,8 @@ class Connect:
         """
         pass
 
+        
+
     def options(self, restApi, data={}, silentMode=False, ignoreError=False, maxRetries=5):
         """
         Description
@@ -272,6 +285,7 @@ class Connect:
            maxRetries: <int>: The maximum amount of GET retries before declaring as server connection failu
         """
         pass
+        
 
     def delete(self, restApi, data={}, headers=None, maxRetries=5):
         """
@@ -440,6 +454,7 @@ class Connect:
         """
         errorList = []
         errorObj = self.ixNetwork.Globals.AppErrors.Error
+
         print()
         for errorId in errorObj:
             if errorId.ErrorLevel == 'kError':
@@ -466,10 +481,57 @@ class Connect:
            httpAction: (get|post): Defaults to GET. For chassisMgmt, it uses POST.
            timeout: (int): The time allowed to wait for success completion in seconds.
         """
-        pass
+
+        if not silentMode:
+            self.logInfo('\nwaitForComplete:', timestamp=False)
+            self.logInfo("\tState: %s " % response.json()["state"], timestamp=False)
+
+        if not response.json():
+            raise IxNetRestApiException('waitForComplete: response is empty.')
+
+        if response.json() == '' or response.json()['state'] == 'SUCCESS':
+            return response
+
+        if 'errors' in response.json():
+            raise IxNetRestApiException(response.json()["errors"][0])
+
+        if response.json()['state'] in ["ERROR", "EXCEPTION"]:
+            raise IxNetRestApiException('WaitForComplete: STATE=%s: %s' % (response.json()['state'], response.text))
+
+        for counter in range(1, timeout + 1):
+            if httpAction == 'get':
+                response = self.get(url, silentMode=True)
+            if httpAction == 'post':
+                response = self.post(url, silentMode=True)
+
+            state = response.json()["state"]
+            if not silentMode:
+                if state != 'SUCCESS':
+                    self.logInfo("\tState: {0}: Wait {1}/{2} seconds".format(state, counter, timeout), timestamp=False)
+                if state == 'SUCCESS':
+                    self.logInfo("\tState: {0}".format(state), timestamp=False)
+
+            if counter < timeout and state in ["IN_PROGRESS", "down"]:
+                time.sleep(1)
+                continue
+
+            if counter < timeout and state in ["ERROR", "EXCEPTION"]:
+                # ignoreException is for assignPorts.  Don't want to exit test.
+                # Verify port connectionStatus for: License Failed and Version Mismatch to report problem immediately.
+                if ignoreException:
+                    return response
+                raise IxNetRestApiException(response.text)
+
+            if counter < timeout and state == 'SUCCESS':
+                return response
+
+            if counter == timeout and state != 'SUCCESS':
+                if ignoreException:
+                    return response
+                raise IxNetRestApiException('waitForComplete failed: %s' % response.json())
 
     def connectToLinuxIxosChassis(self, chassisIp, username, password):
-        pass
+        self.ixNetwork.ConnectToChassis(chassisIp)
 
     def connectToLinuxApiServer(self, linuxServerIp, linuxServerIpPort, username='admin', password='admin',
                                 verifySslCert=False, timeout=120):
@@ -502,7 +564,10 @@ class Connect:
         Syntax
             GET: /api/v1/sessions/9999/ixnetworkglobals/license
         """
-        pass
+        licenseServerIp = self.ixNetwork.globals.Licensing.LicensingServers
+        licenseServerMode = self.ixNetwork.globals.Licensing.Mode
+        licenseServerTier = self.ixNetwork.globals.Licensing.Tier
+        return licenseServerIp, licenseServerMode, licenseServerTier
 
     def configLicenseServerDetails(self, licenseServer=None, licenseMode=None, licenseTier=None):
         """
@@ -517,12 +582,15 @@ class Connect:
         Syntax
            PATCH: /api/v1/sessions/{id}/ixnetwork/globals/licensing
         """
+        # Each new session requires configuring the new session's license details.
+
         if licenseServer:
             self.ixNetwork.Globals.Licensing.LicensingServers = licenseServer
         if licenseMode:
             self.ixNetwork.Globals.Licensing.Mode = licenseMode
         if licenseTier:
             self.ixNetwork.Globals.Licensing.Tier = licenseTier
+
         self.showLicenseDetails()
 
     def showLicenseDetails(self):
@@ -550,8 +618,19 @@ class Connect:
             A dict
             
         """
-        sessions = TestPlatform(ip_address='10.39.70.140', rest_port=443)
-        return sessions.ApiKey
+        activeSessionDict = {}
+        availableSessions = TestPlatform(self.linuxApiServerIp).Sessions.find()
+        for session in availableSessions:
+            if session.State == 'ACTIVE':
+                activeSessionDict.update({session.Id: 
+                                                    {'id':session.Id,
+                                                      'sessionIdUrl':session.href, 
+                                                      'username':session.UserName,
+                                                      'state':session.State }
+                                         }
+                                         )
+
+            return activeSessionDict
 
     def linuxServerStopAndDeleteSession(self):
         """
@@ -565,7 +644,8 @@ class Connect:
         Syntax
            GET = /api/v1/sessions/{id}
         """
-        if self.serverOs == 'linux' and self.deleteSessionAfterTest:
+
+        if self.serverOs == 'linux' and self.deleteSessionAfterTest == True:
             self.linuxServerStopOperations()
             self.linuxServerDeleteSession()
 
@@ -583,7 +663,12 @@ class Connect:
         Syntax
             POST: /api/v1/sessions/{id}/operations/stop
         """
-        pass
+        if sessionId is not None:
+            sessionId = sessionId
+        else:
+            sessionId = self.sessionId
+
+        self.testPlatform.Sessions.find(sessionId).remove()
 
     def linuxServerDeleteSession(self, sessionId=None):
         """
@@ -596,7 +681,12 @@ class Connect:
         Syntax
             DELETE: /api/v1/sessions/{id}/operations/stop
         """
-        pass
+        if sessionId is not None:
+            sessionId = sessionId
+        else:
+            sessionId = self.sessionId
+
+        self.testPlatform.Sessions.find(Id=sessionId).remove()
 
     def linuxServerWaitForSuccess(self, url, timeout=120):
         """
@@ -607,7 +697,23 @@ class Connect:
            url: (str): The URL's ID of the operation to verify.
            timeout: (int): The timeout value.
         """
-        pass
+        availableSessions = TestPlatform(self.linuxApiServerIp).Sessions.find()
+        for session in availableSessions:
+            if session.href == url:
+                break
+
+        for counter in range(1, timeout + 1):
+            currentStatus = session.State
+            self.logInfo('\tCurrentStatus: {0}:  {1}/{2} seconds'.format(currentStatus, counter, timeout),
+                         timestamp=False)
+            if counter < timeout + 1 and currentStatus != 'Operation successfully completed':
+                time.sleep(1)
+
+            if counter == timeout + 1 and currentStatus != 'Operation successfully completed':
+                return 1
+
+            if counter < timeout + 1 and currentStatus == 'Operation successfully completed':
+                return 0
 
     def newBlankConfig(self):
         """
@@ -637,11 +743,7 @@ class Connect:
         Syntax
             /api/v1/sessions/{1}/ixnetwork/availableHardware/chassis/operations/refreshinfo
         """
-        chassisObjs = self.ixNetwork.AvailableHardware.Chassis.find()
-        for eachChassis in chassisObjs:
-            if eachChassis.href == chassisObj:
-                eachChassis.RefreshInfo()
-                break
+      chassisObj.RefreshInfo()
 
     def query(self, data, silentMode=False):
         """

@@ -32,6 +32,7 @@ class Globals(object):
 
         """
         rateObj = None
+
         if endpoint == 'startRate':
             rateObj = self.ixNetwork.Globals.Topology.Dhcpv4client.StartRate
         if endpoint == 'stopRate':
