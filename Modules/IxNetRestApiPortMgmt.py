@@ -22,22 +22,22 @@ class PortMgmt(object):
            Connect to an virtual chassis chassis.
 
         Parameter
-           ixChassisIp: <str>|<list>: A string or a list of chassis IP addresses.
+           chassisIp: <str>: A string of chassis IP addresses.
         """
         counterStop = 45
         for counter in range(1, counterStop + 1):
             chassisStatus = self.ixNetObj.AvailableHardware.Chassis.add(Hostname=chassisIp)
             if chassisStatus.State != 'ready':
-                self.ixnObj.logInfo('\nChassis {0} is not connected yet. Waiting {1}/{2} seconds'.format(ixChassisIp,
+                self.ixnObj.logInfo('\nChassis {0} is not connected yet. Waiting {1}/{2} seconds'.format(chassisIp,
                                                                                            counter, counterStop))
                 time.sleep(1)
 
             if chassisStatus.State == 'ready':
                 self.ixnObj.logInfo('\n{0}'.format(chassisStatus))
-                break
+                return 0
 
             if counter == counterStop:
-                raise Exception('\nFailed to connect to chassis: {0}'.format(chassisIp[0]))
+                raise Exception('\nFailed to connect to chassis: {0}'.format(chassisIp))
 
     def connectIxChassis(self, chassisIp, timeout=45, **kwargs):
         """
@@ -76,7 +76,6 @@ class PortMgmt(object):
 
         return chassisObjList
 
-    
     def disconnectIxChassis(self, chassisIp):
         """
         Description
@@ -132,9 +131,16 @@ class PortMgmt(object):
 
             rawTrafficVportStyle: This parameter is not useful in RESTpy ang Ignoring this
         """
-        self.ixnObj.logInfo('\n Creating Vports for portList {}'.format(portList))
-        for i in range(1,len(portList)+1) :
-            self.ixNetObj.Vport.add()
+        if portList != None :
+            createdVportList = []
+            self.ixnObj.logInfo('\n Creating Vports for portList {}'.format(portList))
+            for i in range(1,len(portList)+1) :
+                createdVportList.append(self.ixNetObj.Vport.add())
+            if createdVportList ==[] :
+                raise Exception("Uable to create vports")
+            return createdVportList
+        else :
+            raise Exception("Please pass the portlist")
 
     def getVportObjectByName(self, portName):
         """
@@ -153,7 +159,7 @@ class PortMgmt(object):
             if vport.Name == portName :
                 return vport
         else :
-            raise Exception("Unable to find vportObj for portnamr {}".format(portName))
+            raise Exception("Unable to find vportObj for portname {}".format(portName))
 
 
     def getVportName(self, vportObj):
@@ -287,6 +293,7 @@ class PortMgmt(object):
         """
         Description
            Verify port connection status for errors such as License Failed,
+           Version Mismatch, Incompatible IxOS version, or any other error.
         """
         self.ixnObj.logInfo('verifyPortConnectionStatus raise exception if any port is not connected to')
         if vport :
@@ -336,8 +343,6 @@ class PortMgmt(object):
             # Name the vports
             for vportObj in self.ixNetObj.Vport.find():
                 port = vportObj.AssignedTo
-                import pdb
-                pdb.set_trace()
                 card = port.split(':')[1]
                 port = port.split(':')[2]
                 vportObj.Name='Port' + card + '_' + port
@@ -604,21 +609,12 @@ class PortMgmt(object):
             cardType = vport.Type
             cardType = cardType[0].upper() + cardType[1:]
             obj = eval('vport' + '.L1Config.' + cardType)
-            if 'enabledFlowControl' in configSettings.keys() : obj.EnabledFlowControl= configSettings['enabledFlowControl']
-            if 'flowControlDirectedAddress' in configSettings.keys(): obj.FlowControlDirectedAddress = configSettings['flowControlDirectedAddress']
-            if 'txIgnoreRxLinkFaults' in configSettings.keys(): obj.TxIgnoreRxLinkFaults = configSettings['txIgnoreRxLinkFaults']
-            if 'laserOn' in configSettings.keys(): obj.LaserOn = configSettings['laserOn']
-            if 'ieeeL1Defaults' in configSettings.keys(): obj.IeeeL1Defaults = configSettings['ieeeL1Defaults']
-            if 'enableAutoNegotiation' in configSettings.keys(): obj.EnableAutoNegotiation = configSettings['enableAutoNegotiation']
-            if 'linkTraining' in configSettings.keys(): obj.LinkTraining = configSettings['linkTraining']
-            if 'firecodeAdvertise' in configSettings.keys(): obj.FirecodeAdvertise = configSettings['firecodeAdvertise']
-            if 'firecodeRequest' in configSettings.keys(): obj.FirecodeRequest = configSettings['firecodeRequest']
-            if 'rsFecAdvertise' in configSettings.keys(): obj.RsFecAdvertise = configSettings['rsFecAdvertise']
-            if 'rsFecRequest' in configSettings.keys(): obj.RsFecRequest = configSettings['rsFecRequest']
-            if 'useANResults' in configSettings.keys(): obj.UseANResults = configSettings['useANResults']
-            if 'firecodeForceOn' in configSettings.keys(): obj.FirecodeForceOn = configSettings['firecodeForceOn']
-            if 'rsFecForceOn' in configSettings.keys(): obj.RsFecForceOn = configSettings['rsFecForceOn']
-            if 'forceDisableFEC' in configSettings.keys(): obj.ForceDisableFEC = configSettings['forceDisableFEC']
+            for key,value in configSettings.items() :
+                key = key[0].upper() + key[1:]
+                try:
+                    eval("obj." + key + ".Single(value)")
+                except:
+                    setattr(obj, key, value)
 
             
     def configLoopbackPort(self, portList='all', enabled=True):
@@ -697,20 +693,18 @@ class PortMgmt(object):
 
         for vport in vportList:
             filterObj = vport.L1Config.RxFilters.FilterPalette
-            if 'pattern1' in filterPalette.keys() : filterObj.Pattern1 = filterPalette['pattern1']
-            if 'pattern1Mask' in filterPalette.keys() : filterObj.Pattern1Mask = filterPalette['pattern1Mask']
-            if 'pattern1Offset' in filterPalette.keys() : filterObj.Pattern1Offset = filterPalette['pattern1Offset']
-            if 'pattern1OffsetType' in filterPalette.keys() : filterObj.Pattern1OffsetType = filterPalette['pattern1OffsetType']
-
-            if 'pattern2' in filterPalette.keys(): filterObj.Pattern2 = filterPalette['pattern2']
-            if 'pattern2Mask' in filterPalette.keys(): filterObj.Pattern2Mask = filterPalette['pattern2Mask']
-            if 'pattern2Offset' in filterPalette.keys(): filterObj.Pattern2Offset = filterPalette['pattern2Offset']
-            if 'pattern2OffsetType' in filterPalette.keys(): filterObj.Pattern2OffsetType = filterPalette['pattern2OffsetType']
+            for key,value in filterPalette.items() :
+                key = key[0].upper() + key[1:]
+                try:
+                    eval("filterObj." + key + ".Single(value)")
+                except:
+                    setattr(filterObj, key, value)
 
             for udsObj in vport.L1Config.RxFilters.Uds.find() :
                 if udsNum==udsObj.href.split("/")[-1] :
-                    if 'isEnabled' in udsArgs.keys() : udsObj.IsEnabled = udsArgs['isEnabled']
-                    if 'patternSelector' in udsArgs.keys() : udsObj.PatternSelector =udsArgs['patternSelector']
-                    if 'frameSizeType' in udsArgs.keys() : udsObj.FrameSizeType = udsArgs['frameSizeType']
-                    if 'customFrameSizeFrom' in udsArgs.keys() : udsObj.CustomFrameSizeFrom = udsArgs['customFrameSizeFrom']
-                    if 'customFrameSizeTo' in udsArgs.keys() : udsObj.CustomFrameSizeTo = udsArgs['customFrameSizeTo']
+                    for key, value in udsArgs.items():
+                        key = key[0].upper() + key[1:]
+                        try:
+                            eval("udsObj." + key + ".Single(value)")
+                        except:
+                            setattr(udsObj, key, value)
