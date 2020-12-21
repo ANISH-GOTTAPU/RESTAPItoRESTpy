@@ -364,7 +364,11 @@ class Protocol(object):
         for key, value in data.items():
             key = key[0:1].capitalize() + key[1:]
             try:
-                eval("isisL3RouterObj." + key + ".Single(value)")
+                multivalueObj = eval('isisL3RouterObj.find()'+key)
+                if type(value) == dict:
+                    self.configMultivalue(multivalueObj, 'counter', value)
+                else:
+                    multivalueObj.Single(value)
             except:
                 setattr(isisL3RouterObj, key, value)
 
@@ -1038,28 +1042,29 @@ class Protocol(object):
             /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}/ethernet/{id}/ipv4/{id}/igmp/{id}
         """
         # To create new IGMP object
-        def configIgmpHost(self, ipObj, **kwargs):
-    """
-    Description
-        Create or modify IGMP host.
-        Provide an IPv4|IPv6 obj to create a new IGMP host object.
-        Provide an IGMP host object to modify.
-    Parameters
-        ipObj: <str:obj>: /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1
-        igmpObj: <str:obj>: /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1/igmp/1
-    Syntax
-        POST:  /api/v1/sessions/{​​​​​​​id}​​​​​​​/ixnetwork/topology/{​​​​​​​id}​​​​​​​/deviceGroup/{​​​​​​​id}​​​​​​​/ethernet/{​​​​​​​id}​​​​​​​/ipv4/{​​​​​​​id}​​​​​​​/igmp
-        PATCH: /api/v1/sessions/{​​​​​​​id}​​​​​​​/ixnetwork/topology/{​​​​​​​id}​​​​​​​/deviceGroup/{​​​​​​​id}​​​​​​​/ethernet/{​​​​​​​id}​​​​​​​/ipv4/{​​​​​​​id}​​​​​​​/igmp/{​​​​​​​id}​​​​​​​
-    Example:
-    Return
-        /api/v1/sessions/{​​​​​​​id}​​​​​​​/ixnetwork/topology/{​​​​​​​id}​​​​​​​/deviceGroup/{​​​​​​​id}​​​​​​​/ethernet/{​​​​​​​id}​​​​​​​/ipv4/{​​​​​​​id}​​​​​​​/igmp/{​​​​​​​id}​​​​​​​
-    """
+
+    def configIgmpHost(self, ipObj, **kwargs):
+        """
+        Description
+            Create or modify IGMP host.
+            Provide an IPv4|IPv6 obj to create a new IGMP host object.
+            Provide an IGMP host object to modify.
+        Parameters
+            ipObj: <str:obj>: /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1
+            igmpObj: <str:obj>: /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1/igmp/1
+        Syntax
+            POST:  /api/v1/sessions/{​​​​​​​id}​​​​​​​/ixnetwork/topology/{​​​​​​​id}​​​​​​​/deviceGroup/{​​​​​​​id}​​​​​​​/ethernet/{​​​​​​​id}​​​​​​​/ipv4/{​​​​​​​id}​​​​​​​/igmp
+            PATCH: /api/v1/sessions/{​​​​​​​id}​​​​​​​/ixnetwork/topology/{​​​​​​​id}​​​​​​​/deviceGroup/{​​​​​​​id}​​​​​​​/ethernet/{​​​​​​​id}​​​​​​​/ipv4/{​​​​​​​id}​​​​​​​/igmp/{​​​​​​​id}​​​​​​​
+        Example:
+        Return
+            /api/v1/sessions/{​​​​​​​id}​​​​​​​/ixnetwork/topology/{​​​​​​​id}​​​​​​​/deviceGroup/{​​​​​​​id}​​​​​​​/ethernet/{​​​​​​​id}​​​​​​​/ipv4/{​​​​​​​id}​​​​​​​/igmp/{​​​​​​​id}​​​​​​​
+        """
         # To create new IGMP object
         igmpObj = None
         if 'igmp' not in ipObj.href:
             self.ixnObj.logInfo('Create new IGMP V4 host')
             igmpObj = ipObj.IgmpHost.add()
-
+            
         # To modify IGMP
         if 'igmp' in ipObj.href:
             igmpObj = ipObj
@@ -1166,7 +1171,7 @@ class Protocol(object):
         Return
             /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}/ethernet/{id}/ipv4/{id}/vxlan/{id}
         """
-                if obj != None:
+        if obj != None:
             if 'vxlan' not in obj:
                 vxlanId = obj.Ipv4.find().Vxlan.add()
 
@@ -2524,7 +2529,7 @@ class Protocol(object):
         ipv4ObjSessionList = self.ixNetwork.Topology.find.DeviceGroup.find().Ethernet.find().Ipv4.find()
         ipv4Obj = [ipv4Obj for ipv4Obj in ipv4ObjSessionList if ipv4Obj.Address.Values == srcIpAddress]
         if ipv4Obj is not None:
-            return [ipv4Obj.parent.parent, pv4Obj]
+            return [ipv4Obj.parent.parent, ipv4Obj]
         else:
             return None
           
@@ -2587,7 +2592,7 @@ class Protocol(object):
             None: No ipAddress found in any NetworkGroup.
             network group Object: The Network Group object.
         """
-       grpObjList = None
+        grpObjList = None
         if '.' in networkGroupIpAddress:
             grpObjList = self.ixNetwork.Topology.find().DeviceGroup.find().NetworkGroup.find().Ipv4PrefixPools.find()
         if ':' in networkGroupIpAddress:
@@ -3947,7 +3952,6 @@ class Protocol(object):
                                  Example: ['225.0.0.3', '225.0.0.4']
             action: join|leave
         """
-      
         if routerId:
             deviceGroupObj = self.getDeviceGroupByRouterId(routerId=routerId)
             if deviceGroupObj == 0:

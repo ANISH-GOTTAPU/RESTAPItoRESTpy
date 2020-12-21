@@ -743,7 +743,8 @@ class Connect:
         Syntax
             /api/v1/sessions/{1}/ixnetwork/availableHardware/chassis/operations/refreshinfo
         """
-      chassisObj.RefreshInfo()
+
+        chassisObj.RefreshInfo()
 
     def query(self, data, silentMode=False):
         """
