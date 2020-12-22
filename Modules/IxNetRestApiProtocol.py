@@ -995,9 +995,9 @@ class Protocol(object):
             if hasattr(obj,'BgpIpv6Peer'):
                 bgpObj = obj.BgpIpv6Peer.add()
 
-        if 'enableBgpIdSameasRouterId' in kwargs:
-            kwargs['EnableBgpIdSameAsRouterId'] = kwargs['enableBgpIdSameasRouterId']
-            del kwargs['enableBgpIdSameasRouterId']
+        if 'enableBgp' in kwargs:
+            kwargs['enableBgpId'] = kwargs['enableBgp']
+            del kwargs['enableBgp']
 
         for key, value in kwargs.items():
             key = key[0:1].capitalize() + key[1:]
@@ -1317,8 +1317,21 @@ class Protocol(object):
             deviceGroupObj = kwargs['create']
             networkGroupObj = deviceGroupObj.find().NetworkGroup.add()
 
+            if ipVersion == 'ipv4':
+                prefixObj = networkGroupObj.find().Ipv4PrefixPools.add()
+            elif ipVersion == 'ipv6':
+                prefixObj = networkGroupObj.find().Ipv6PrefixPools.add()
+
         if 'modify' in kwargs:
             networkGroupObj = kwargs['modify']
+            if ipVersion == 'ipv4':
+                prefixObj = networkGroupObj.find().Ipv4PrefixPools.find()
+            else:
+                prefixObj = networkGroupObj.find().Ipv6PrefixPools.find()
+
+        networkAddrObj = prefixObj.find().NetworkAddress
+        if 'networkAddress' in kwargs:
+            self.configMultivalue(networkAddrObj, 'counter', kwargs['networkAddress'])
 
         if 'name' in kwargs:
             networkGroupObj.Name = kwargs['name']
@@ -1326,38 +1339,12 @@ class Protocol(object):
         if 'multiplier' in kwargs:
             networkGroupObj.Multiplier = kwargs['multiplier']
 
-        if 'networkAddress' in kwargs:
-            networkAddrValue = kwargs['networkAddress']
-            if ipVersion == 'ipv4':
-                prefixObj = networkGroupObj.find().Ipv4PrefixPools.add()
-                networkAddrObj = prefixObj.find().NetworkAddress
-
-                if networkAddrValue['direction'] == "increment":
-                    networkAddrObj.Increment(start_value = networkAddrValue['start'], step_value = networkAddrValue['step'])
-                if networkAddrValue['direction'] == "decrement":
-                    networkAddrObj.Decrement(start_value=kwargs['start'], step_value=networkAddrValue['step'])
-
-                if 'prefixLength' in kwargs:
-                    if type(kwargs['prefixLength']) == 'int':
-                        if networkAddrObj is not None:
-                            networkAddrObj.Single(kwargs['prefixLength'])
-
-            elif ipVersion == "ipv6":
-                prefixObj = networkGroupObj.find().Ipv6PrefixPools.add()
-                networkAddrObj = prefixObj.find().NetworkAddress
-
-                if networkAddrValue['direction'] == "increment":
-                    networkAddrObj.Increment(start_value=networkAddrValue['start'], step_value=networkAddrValue['step'])
-                if kwargs['direction'] == "decrement":
-                    networkAddrObj.Decrement(start_value=networkAddrValue['start'], step_value=networkAddrValue['step'])
-
-                if 'prefixLength' in kwargs:
-                    if type(kwargs['prefixLength']) == 'int':
-                        if networkAddrObj is not None:
-                            networkAddrObj.Single(kwargs['prefixLength'])
+        if 'prefixLength' in kwargs:
+            if type(kwargs['prefixLength']) == 'int':
+                networkAddrObj.Single(kwargs['prefixLength'])
 
         return networkGroupObj, prefixObj
-      
+
     def configNetworkGroupWithTopology(self, topoType='Linear', **kwargs):
         """
         Description
@@ -1406,9 +1393,6 @@ class Protocol(object):
                              'Tree': 'NetTopologyTree',
                              }
 
-        self.networkTopologyObj = None
-        self.networkTopology = None
-
         if 'create' not in kwargs and 'modify' not in kwargs:
             raise IxNetRestApiException('configNetworkGroup requires either a create or modify parameter.')
 
@@ -1416,8 +1400,15 @@ class Protocol(object):
             deviceGroupObj = kwargs['create']
             self.ixnObj.logInfo('Creating new Network Group')
             networkGroupObj = deviceGroupObj.NetworkGroup.add()
+            networkTopology = networkGroupObj.NetworkTopology.add()
+            networkTopologyObj = eval("networkTopology." + self.topoTypeDict[topoType] + ".add()")
         if 'modify' in kwargs:
             networkGroupObj = kwargs['modify']
+            networkTopology = networkGroupObj.NetworkTopology.find()
+            if eval("networkTopology." + self.topoTypeDict[topoType] + ".find()"):
+                networkTopologyObj = eval("networkTopology." + self.topoTypeDict[topoType] + ".find()")
+            else:
+                networkTopologyObj = eval("networkTopology." + self.topoTypeDict[topoType] + ".add()")
 
         if 'name' in kwargs:
             networkGroupObj.Name = kwargs['name']
@@ -1425,16 +1416,6 @@ class Protocol(object):
         if 'multiplier' in kwargs:
             networkGroupObj.Multiplier = kwargs['multiplier']
 
-        if 'create' in kwargs:
-            self.ixnObj.logInfo('Create new Network Group network topology')
-            networkTopology = networkGroupObj.NetworkTopology.add()
-            networkTopologyObj = eval("networkTopology." + self.topoTypeDict[topoType] + ".add()")
-        else:
-            networkTopology = networkGroupObj.NetworkTopology.find()
-            if eval("networkTopology." + self.topoTypeDict[topoType] + ".find()"):
-                networkTopologyObj = eval("networkTopology." + self.topoTypeDict[topoType] + ".find()")
-            else:
-                eval("networkTopology." + self.topoTypeDict[topoType] + ".add()")
         return networkGroupObj, networkTopologyObj
 
     def configNetworkTopologyProperty(self, networkGroupObj, pseudoRouter, **kwargs):
@@ -1460,7 +1441,7 @@ class Protocol(object):
             data = {'start': kwargs['routerId']['start'],
                     'step': kwargs['routerId']['step'],
                     'direction': kwargs['routerId']['direction']}
-            self.configMultivalue(simRouteObj.RouterId, 'counter', data)
+            self.configMultivalue(simRouteObj.RouterId, 'counter', kwargs['routerId'])
 
         pseudoRouter = pseudoRouter[0].capitalize() + pseudoRouter[1:]
         if 'routerLsaBit' in kwargs:
@@ -4264,6 +4245,43 @@ class Protocol(object):
                                                     timestamp=False)
             self.ixnObj.logInfo('\n', timestamp=False)
 
+    # def getBgpObject(self, topologyName=None, bgpAttributeList=None):
+    #     """
+    #     Description
+    #         Get the BGP object from the specified Topology Group name and return the specified attributes
+    #
+    #     Parameters
+    #         topologyName: The Topology Group name
+    #         bgpAttributeList: The BGP attributes to get.
+    #
+    #
+    #     Example:
+    #         bgpAttributeMultivalue = restObj.getBgpObject(topologyName='Topo1', bgpAttributeList=['flap',
+    #         'uptimeInSec', 'downtimeInSec'])
+    #         restObj.configMultivalue(bgpAttributeMultivalue['flap'],          multivalueType='valueList',
+    #         data={'values': ['true', 'true']})
+    #         restObj.configMultivalue(bgpAttributeMultivalue['uptimeInSec'],   multivalueType='singleValue',
+    #         data={'value': '60'})
+    #         restObj.configMultivalue(bgpAttributeMultivalue['downtimeInSec'], multivalueType='singleValue',
+    #         data={'value': '30'})
+    #     """
+    #     queryData = {'from': '/',
+    #                  'nodes': [{'node': 'topology',    'properties': ['name'], 'where': [{'property': 'name',
+    #                                                                                       'regex': topologyName}]},
+    #                            {'node': 'deviceGroup', 'properties': [], 'where': []},
+    #                            {'node': 'ethernet',    'properties': [], 'where': []},
+    #                            {'node': 'ipv4',        'properties': [], 'where': []},
+    #                            {'node': 'bgpIpv4Peer', 'properties': bgpAttributeList, 'where': []}]
+    #                  }
+    #     queryResponse = self.ixnObj.query(data=queryData)
+    #     try:
+    #         bgpHostAttributes = queryResponse.json()['result'][0]['topology'][0]['deviceGroup'][0]['ethernet'][0]
+    #         ['ipv4'][0]['bgpIpv4Peer'][0]
+    #         return bgpHostAttributes
+    #     except IndexError:
+    #         raise IxNetRestApiException('\nVerify the topologyName and bgpAttributeList input: {0} / {1}\n'
+    #                                     .format(topologyName, bgpAttributeList))
+
     def getBgpObject(self, topologyName=None, bgpAttributeList=None):
         """
         Description
@@ -4273,37 +4291,31 @@ class Protocol(object):
             topologyName: The Topology Group name
             bgpAttributeList: The BGP attributes to get.
 
-
         Example:
-            bgpAttributeMultivalue = restObj.getBgpObject(topologyName='Topo1', bgpAttributeList=['flap',
-            'uptimeInSec', 'downtimeInSec'])
-            restObj.configMultivalue(bgpAttributeMultivalue['flap'],          multivalueType='valueList',
-            data={'values': ['true', 'true']})
-            restObj.configMultivalue(bgpAttributeMultivalue['uptimeInSec'],   multivalueType='singleValue',
-            data={'value': '60'})
-            restObj.configMultivalue(bgpAttributeMultivalue['downtimeInSec'], multivalueType='singleValue',
-            data={'value': '30'})
+            bgpAttributeMultivalue = restObj.getBgpObject(topologyName='Topo1', bgpAttributeList=['flap', 'uptimeInSec', 'downtimeInSec'])
+            restObj.configMultivalue(bgpAttributeMultivalue['flap'],          multivalueType='valueList',   data={'values': ['true', 'true']})
+            restObj.configMultivalue(bgpAttributeMultivalue['uptimeInSec'],   multivalueType='singleValue', data={'value': '60'})
+            restObj.configMultivalue(bgpAttributeMultivalue['downtimeInSec'], multivalueType='singleValue', data={'value': '30'})
         """
-        queryData = {'from': '/',
-                     'nodes': [{'node': 'topology',    'properties': ['name'], 'where': [{'property': 'name',
-                                                                                          'regex': topologyName}]},
-                               {'node': 'deviceGroup', 'properties': [], 'where': []},
-                               {'node': 'ethernet',    'properties': [], 'where': []},
-                               {'node': 'ipv4',        'properties': [], 'where': []},
-                               {'node': 'bgpIpv4Peer', 'properties': bgpAttributeList, 'where': []}]
-                     }
-        queryResponse = self.ixnObj.query(data=queryData)
-        try:
-            bgpHostAttributes = queryResponse.json()['result'][0]['topology'][0]['deviceGroup'][0]['ethernet'][0]
-            ['ipv4'][0]['bgpIpv4Peer'][0]
-            return bgpHostAttributes
-        except IndexError:
-            raise IxNetRestApiException('\nVerify the topologyName and bgpAttributeList input: {0} / {1}\n'
-                                        .format(topologyName, bgpAttributeList))
+        bgpAttributeDict = {}
+        if (self.ixNetwork.Topology.find(
+                Name=topologyName).DeviceGroup.find().Ethernet.find().Ipv4.find().BgpIpv4Peer.find()):
+            bgpObj = self.ixNetwork.Topology.find(
+                Name=topologyName).DeviceGroup.find().Ethernet.find().Ipv4.find().BgpIpv4Peer.find()[0]
+            if bgpAttributeList != None:
+                for attribute in bgpAttributeList:
+                    newattribute = attribute[0].upper() + attribute[1:]
+                    bgpAttributeDict[attribute] = eval("bgpObj." + newattribute)
+                return bgpAttributeDict
+        else:
+            raise Exception("No bgp config found on the specified topology {}".format(topologyName))
 
     def isRouterIdInDeviceGroupObj(self, routerId, deviceGroupObj):
-        routerIdMultivalue = deviceGroup['routerData'][0]['routerId']
-        routerIdList = self.ixnObj.getMultivalueValues(routerIdMultivalue, silentMode=True)
+        routerIdList = deviceGroupObj.RouterData.find().RouterId.find().RouterId.Values
+        if routerId in routerIdList:
+            return True
+        else:
+            return False
 
     def configBgpNumberOfAs(self, routerId, numberOfAs):
         """
@@ -4325,30 +4337,39 @@ class Protocol(object):
         Requirements
             getDeviceGroupByRouterId()
         """
+        # deviceGroupObj = self.getDeviceGroupByRouterId(routerId=routerId)
+        # if deviceGroupObj == 0:
+        #     raise IxNetRestApiException('No Device Group found for router ID: %s' % routerId)
+        #
+        # queryData = {'from': deviceGroupObj,
+        #              'nodes': [{'node': 'networkGroup',    'properties': [], 'where': []},
+        #                        {'node': 'ipv4PrefixPools', 'properties': [], 'where': []},
+        #                        {'node': 'bgpIPRouteProperty', 'properties': [], 'where': []},
+        #                        {'node': 'bgpAsPathSegmentList', 'properties': [], 'where': []}
+        #                        ]}
+        # queryResponse = self.ixnObj.query(data=queryData)
+        # try:
+        #     bgpStack = queryResponse.json()['result'][0]['networkGroup'][0]['ipv4PrefixPools'][0]['bgpIPRouteProperty'][0]['bgpAsPathSegmentList']
+        # except:
+        #     raise IxNetRestApiException('No object found in DeviceGroup object:  deviceGroup/networkGroup/'
+        #                                 'ipv4PrefixPools/bgpIPRouteProperty/bgpAsPathSegmentList: %s' % deviceGroupObj)
+        #
+        # if not bgpStack:
+        #     return IxNetRestApiException('No ipv4PrefixPools bgpIPRouteProperty object found.')
+        #
+        # bgpRouteObj = bgpStack[0]['href']
+        # response = self.ixnObj.get(self.ixnObj.httpHeader+bgpRouteObj)
+        # asNumberInSegmentMultivalue = response.json()['numberOfAsNumberInSegment']
+        # self.ixnObj.patch(self.ixnObj.httpHeader+bgpRouteObj, data={'numberOfAsNumberInSegment': numberOfAs})
         deviceGroupObj = self.getDeviceGroupByRouterId(routerId=routerId)
-        if deviceGroupObj == 0:
-            raise IxNetRestApiException('No Device Group found for router ID: %s' % routerId)
-
-        queryData = {'from': deviceGroupObj,
-                     'nodes': [{'node': 'networkGroup',    'properties': [], 'where': []},
-                               {'node': 'ipv4PrefixPools', 'properties': [], 'where': []},
-                               {'node': 'bgpIPRouteProperty', 'properties': [], 'where': []},
-                               {'node': 'bgpAsPathSegmentList', 'properties': [], 'where': []}
-                               ]}
-        queryResponse = self.ixnObj.query(data=queryData)
+        if deviceGroupObj == None:
+            raise Exception('No Device Group found for router ID: %s' % routerId)
         try:
-            bgpStack = queryResponse.json()['result'][0]['networkGroup'][0]['ipv4PrefixPools'][0]['bgpIPRouteProperty'][0]['bgpAsPathSegmentList']
+            for bgpSegObj in deviceGroupObj.NetworkGroup.find().Ipv4PrefixPools.find().BgpIPRouteProperty.find().BgpAsPathSegmentList.find():
+                bgpSegObj.NumberOfAsNumberInSegment = numberOfAs
         except:
-            raise IxNetRestApiException('No object found in DeviceGroup object:  deviceGroup/networkGroup/'
-                                        'ipv4PrefixPools/bgpIPRouteProperty/bgpAsPathSegmentList: %s' % deviceGroupObj)
-
-        if not bgpStack:
-            return IxNetRestApiException('No ipv4PrefixPools bgpIPRouteProperty object found.')
-
-        bgpRouteObj = bgpStack[0]['href']
-        response = self.ixnObj.get(self.ixnObj.httpHeader+bgpRouteObj)
-        asNumberInSegmentMultivalue = response.json()['numberOfAsNumberInSegment']
-        self.ixnObj.patch(self.ixnObj.httpHeader+bgpRouteObj, data={'numberOfAsNumberInSegment': numberOfAs})
+            for bgpSegObj in deviceGroupObj.NetworkGroup.find().Ipv6PrefixPools.find().BgpIPRouteProperty.find().BgpAsPathSegmentList.find():
+                bgpSegObj.NumberOfAsNumberInSegment = numberOfAs
 
     def configBgpAsPathSegmentListNumber(self, routerId, asNumber, indexAndAsNumber):
         """
@@ -4459,17 +4480,7 @@ class Protocol(object):
         Description
             This is an internal function usage for getNgpfObjectHandleByName() only.
         """
-        for key, value in keys.items():
-            if type(value) is list:
-                for keyValue in value:
-                    for key, value in keyValue.items():
-                        if key == 'name' and value == ngpfEndpointName:
-                            return keyValue['href']
-
-                    object = self.getObject(keys=keyValue, ngpfEndpointName=ngpfEndpointName)
-                    if object is not None:
-                        return object
-        return None
+        pass
 
     def getNgpfObjectHandleByName(self, ngpfEndpointObject=None, ngpfEndpointName=None):
         """
@@ -4988,6 +4999,7 @@ class Protocol(object):
         boundCount = 0
         idleBoundDict = {}
         ibList = []
+        deviceGroupObjList = None
 
         for protocol in protocols:
             self.ixnObj.logInfo('Verifying DHCP IDLE/BOUND/NOTSTARTED for {0} protocol'.format(protocol))
@@ -4995,10 +5007,16 @@ class Protocol(object):
 
             if portName:
                 protocolList = self.getProtocolListByPortNgpf(portName=portName)
-                topology = protocolList['deviceGroup'][0][0].split("deviceGroup")[0]
-                deviceGroupObjList = topology.DeviceGroup.find()
-                for deviceGroupObj in deviceGroupObjList:
-                    deviceList.append(deviceGroupObj.Name)
+                topologyHref = protocolList['topology']
+                topologyList = self.getAllTopologyList()
+                for topology in topologyList:
+                    if topologyHref == topology.href:
+                        deviceGroupObjList = topology.DeviceGroup.find()
+                        break
+
+                if deviceGroupObjList is not None:
+                    for deviceGroupObj in deviceGroupObjList:
+                        deviceList.append(deviceGroupObj.Name)
             elif deviceGroupName is None:
                 # Get all deviceGroups in all topology lists
                 topologyList = self.getAllTopologyList()
