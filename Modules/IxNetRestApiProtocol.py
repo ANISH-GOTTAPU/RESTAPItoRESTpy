@@ -123,7 +123,7 @@ class Protocol(object):
         Returns:
             /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}
         """
-        self.ixnObj.logInfo('Create new Device Group')
+        # self.ixnObj.logInfo('Create new Device Group')
         deviceGroupObj = topologyObj.DeviceGroup.add(Name=deviceGroupName, Multiplier=multiplier)
         return deviceGroupObj
 
@@ -220,78 +220,79 @@ class Protocol(object):
                                 )
         """
         if obj != None:
+
+            # To modify
+            if ngpfEndpointName:
+                ethObj = self.getNgpfObjectHandleByName(ngpfEndpointName=ngpfEndpointName, ngpfEndpointObject='ethernet')
+
+            # To modify
+            if port:
+                x = self.getProtocolListByPortNgpf(port=port)
+                ethObj = self.getProtocolObjFromProtocolList(x['deviceGroup'], 'ethernet')[0]
+
+            # To modify
+            if portName:
+                x = self.getProtocolListByPortNgpf(portName=portName)
+                ethObj = self.getProtocolObjFromProtocolList(x['deviceGroup'], 'ethernet')[0]
+
             if 'ethernet' in obj.href:
                 ethObj = obj
             else:
-                ethObj = obj.find().Ethernet.add()
+                ethObj = obj.Ethernet.add()
 
-        # To modify
-        if ngpfEndpointName:
-            ethObj = self.getNgpfObjectHandleByName(ngpfEndpointName=ngpfEndpointName, ngpfEndpointObject='ethernet')
+            if 'ethernetName' in kwargs:
+                # ethObj.Name = kwargs['ethernetName']
+                kwargs['name'] = kwargs['ethernetName']
+                del kwargs['ethernetName']
 
-        # To modify
-        if port:
-            x = self.getProtocolListByPortNgpf(port=port)
-            ethObj = self.getProtocolObjFromProtocolList(x['deviceGroup'], 'ethernet')[0]
+            if 'macAddress' in kwargs:
+                macObj = ethObj.Mac
+                macValues = kwargs['macAddress']
+                self.configMultivalue(macObj, 'counter', macValues)
+                del kwargs['macAddress']
 
-        # To modify
-        if portName:
-            x = self.getProtocolListByPortNgpf(portName=portName)
-            ethObj = self.getProtocolObjFromProtocolList(x['deviceGroup'], 'ethernet')[0]
+            if 'macAddressPortStep' in kwargs:
+                macStepObj = ethObj.Mac.Steps.find()
+                macStepValue = kwargs['macAddressPortStep']
 
-        if 'ethernetName' in kwargs:
-            # ethObj.Name = kwargs['ethernetName']
-            kwargs['name'] = kwargs['ethernetName'] 
-            del kwargs['ethernetName'] 
-
-        if 'macAddress' in kwargs:
-            macObj = ethObj.Mac
-            macValues = kwargs['macAddress']
-            self.configMultivalue(macObj, 'counter', macValues)
-            del kwargs['macAddress'] 
-
-        if 'macAddressPortStep' in kwargs:
-            macStepObj = ethObj.Mac.Steps.find()
-            macStepValue = kwargs['macAddressPortStep']
-
-            if macStepValue != 'disabled':
-                macStepObj.Enabled = True
-                macStepObj.Step = macStepValue
-            else:
-                macStepObj.Enabled = False
-            del kwargs['macAddressPortStep']
-
-        if 'vlanId' in kwargs:
-            vlanObj = ethObj.Vlan.find().VlanId
-            enableVlanObj = ethObj.EnableVlans
-            enableVlanObj.Single(True)
-
-            vlanValues = kwargs['vlanId']
-            self.configMultivalue(vlanObj, 'counter', vlanValues)
-            del kwargs['vlanId']
-
-        if 'vlanPriority' in kwargs:
-            priorityObj = ethObj.Vlan.find().Priority
-            enableVlanObj = ethObj.EnableVlans
-            enableVlanObj.Single(True)
-            priorityValues = kwargs['vlanPriority']
-            self.configMultivalue(priorityObj, 'counter', priorityValues)
-            del kwargs['vlanPriority']
-
-        for key, value in kwargs.items():
-            key = key[0:1].capitalize() + key[1:]
-            multivalueObj = eval("ethObj.find()." + key)
-            try:
-                if type(value) == dict:
-                    self.configMultivalue(multivalueObj, 'counter', value)
+                if macStepValue != 'disabled':
+                    macStepObj.Enabled = True
+                    macStepObj.Step = macStepValue
                 else:
-                    multivalueObj.Single(value)
-            except:
-                setattr(ethObj, key, value)
+                    macStepObj.Enabled = False
+                del kwargs['macAddressPortStep']
 
-        if ethObj not in self.configuredProtocols:
-            self.configuredProtocols.append(ethObj)
-        return ethObj
+            if 'vlanId' in kwargs:
+                vlanObj = ethObj.Vlan.find().VlanId
+                enableVlanObj = ethObj.EnableVlans
+                enableVlanObj.Single(True)
+
+                vlanValues = kwargs['vlanId']
+                self.configMultivalue(vlanObj, 'counter', vlanValues)
+                del kwargs['vlanId']
+
+            if 'vlanPriority' in kwargs:
+                priorityObj = ethObj.Vlan.find().Priority
+                enableVlanObj = ethObj.EnableVlans
+                enableVlanObj.Single(True)
+                priorityValues = kwargs['vlanPriority']
+                self.configMultivalue(priorityObj, 'counter', priorityValues)
+                del kwargs['vlanPriority']
+
+            for key, value in kwargs.items():
+                key = key[0:1].capitalize() + key[1:]
+                multivalueObj = eval("ethObj.find()." + key)
+                try:
+                    if type(value) == dict:
+                        self.configMultivalue(multivalueObj, 'counter', value)
+                    else:
+                        multivalueObj.Single(value)
+                except:
+                    setattr(ethObj, key, value)
+
+            if ethObj not in self.configuredProtocols:
+                self.configuredProtocols.append(ethObj)
+            return ethObj
 
     # Was configIsIsL3Ngpf
     def configIsIsL3Ngpf(self, obj, **data):
@@ -321,7 +322,7 @@ class Protocol(object):
             key = key[0:1].capitalize() + key[1:]
             print("checking for key", key)
             try:
-                multivalueObj = eval('isisObj.find()'+key)
+                multivalueObj = eval("isisObj.find()."+key)
                 if type(value) == dict:
                     self.configMultivalue(multivalueObj, 'counter', value)
                 else:
@@ -358,13 +359,19 @@ class Protocol(object):
 
            data: <dict>:  Get attributes from the IxNetwork API browser.
         """
-        if 'enableBIER' in data:
-            isisL3RouterObj.EnableBIER = data['enableBIER']
+        # if 'enableBIER' in data:
+        #     isisL3RouterObj.EnableBIER = data['enableBIER']
+        #     del data['enableBIER']
 
         for key, value in data.items():
             key = key[0:1].capitalize() + key[1:]
+            print("checking for key", key)
             try:
-                eval("isisL3RouterObj." + key + ".Single(value)")
+                multivalueObj = eval("isisL3RouterObj.find()."+key)
+                if type(value) == dict:
+                    self.configMultivalue(multivalueObj, 'counter', value)
+                else:
+                    multivalueObj.Single(value)
             except:
                 setattr(isisL3RouterObj, key, value)
 
@@ -492,9 +499,17 @@ class Protocol(object):
                 addrPortStepObj.Enabled = False
             del kwargs['ipv4AddressPortStep']
 
+        if 'ipv4Address' in kwargs:
+            kwargs['Address'] = kwargs['ipv4Address']
+            del kwargs['ipv4Address']
+
+        if 'gateway' in kwargs:
+            kwargs['gatewayIp'] = kwargs['gateway']
+            del kwargs['gateway']
+
         for key, value in kwargs.items():
             key = key [0:1].capitalize() + key[1:]
-            multivalueObj = eval("ospfObj.find()." + key)
+            multivalueObj = eval("ipv4Obj.find()." + key)
             try:
                 if type(value) == dict:
                     self.configMultivalue(multivalueObj, 'counter', value)
@@ -691,7 +706,7 @@ class Protocol(object):
         for key, value in kwargs.items():
             if key in dhcpServerAttributes:
                 key = key[0:1].capitalize() + key[1:]
-                multivalueObj = eval('dhcpObj.find().'+key)
+                multivalueObj = eval("dhcpObj.find()."+key)
                 try:
                     if type(value) == dict:
                         self.configMultivalue(multivalueObj, 'counter', value)
@@ -708,7 +723,7 @@ class Protocol(object):
         for key, value in kwargs.items():
             if key in dhcpServerSessionAttributes:
                 key = key[0:1].capitalize() + key[1:]
-                multivalObj = eval('dhcpServerSessionObj.'+key)
+                multivalObj = eval("dhcpServerSessionObj.find()."+key)
                 try:
                     if type(value) == dict:
                         self.configMultivalue(multivalObj, 'counter', value)
@@ -853,7 +868,7 @@ class Protocol(object):
         """
         if obj != None:
             if routerId:
-                ospfObj = obj.find().Ospfv3.find(LocalRouterID=routerId)
+                ospfObj = self.getNgpfObjectHandleByRouterId(routerId=routerId, ngpfEndpointObject='ospfv3')
 
             if port:
                 x = self.getProtocolListByPortNgpf(port=port)
@@ -870,11 +885,10 @@ class Protocol(object):
                 x = self.getProtocolListByHostIpNgpf(hostIp)
                 ospfObj = self.getProtocolObjFromHostIp(x, protocol='ospfv3')
 
-            if ospfObj == None:
-                if 'ospf' not in obj.href:
-                    ospfObj = obj.Ospfv3.add()
-                else:
-                    ospfObj = obj
+            if 'ospf' not in obj.href:
+                ospfObj = obj.Ospfv3.add()
+            else:
+                ospfObj = obj
 
             for item, value in kwargs.items():
                 if item not in ['lsaRefreshTime', 'lsaRetransmitTime', 'interFloodLsUpdateBurstGap']:
@@ -981,6 +995,10 @@ class Protocol(object):
             if hasattr(obj,'BgpIpv6Peer'):
                 bgpObj = obj.BgpIpv6Peer.add()
 
+        if 'enableBgpIdSameasRouterId' in kwargs:
+            kwargs['EnableBgpIdSameAsRouterId'] = kwargs['enableBgpIdSameasRouterId']
+            del kwargs['enableBgpIdSameasRouterId']
+
         for key, value in kwargs.items():
             key = key[0:1].capitalize() + key[1:]
             multivalue = eval("bgpObj.find()." + key)
@@ -1038,22 +1056,22 @@ class Protocol(object):
             /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}/ethernet/{id}/ipv4/{id}/igmp/{id}
         """
         # To create new IGMP object
-        def configIgmpHost(self, ipObj, **kwargs):
-    """
-    Description
-        Create or modify IGMP host.
-        Provide an IPv4|IPv6 obj to create a new IGMP host object.
-        Provide an IGMP host object to modify.
-    Parameters
-        ipObj: <str:obj>: /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1
-        igmpObj: <str:obj>: /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1/igmp/1
-    Syntax
-        POST:  /api/v1/sessions/{​​​​​​​id}​​​​​​​/ixnetwork/topology/{​​​​​​​id}​​​​​​​/deviceGroup/{​​​​​​​id}​​​​​​​/ethernet/{​​​​​​​id}​​​​​​​/ipv4/{​​​​​​​id}​​​​​​​/igmp
-        PATCH: /api/v1/sessions/{​​​​​​​id}​​​​​​​/ixnetwork/topology/{​​​​​​​id}​​​​​​​/deviceGroup/{​​​​​​​id}​​​​​​​/ethernet/{​​​​​​​id}​​​​​​​/ipv4/{​​​​​​​id}​​​​​​​/igmp/{​​​​​​​id}​​​​​​​
-    Example:
-    Return
-        /api/v1/sessions/{​​​​​​​id}​​​​​​​/ixnetwork/topology/{​​​​​​​id}​​​​​​​/deviceGroup/{​​​​​​​id}​​​​​​​/ethernet/{​​​​​​​id}​​​​​​​/ipv4/{​​​​​​​id}​​​​​​​/igmp/{​​​​​​​id}​​​​​​​
-    """
+    def configIgmpHost(self, ipObj, **kwargs):
+        """
+        Description
+            Create or modify IGMP host.
+            Provide an IPv4|IPv6 obj to create a new IGMP host object.
+            Provide an IGMP host object to modify.
+        Parameters
+            ipObj: <str:obj>: /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1
+            igmpObj: <str:obj>: /api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1/igmp/1
+        Syntax
+            POST:  /api/v1/sessions/{​​​​​​​id}​​​​​​​/ixnetwork/topology/{​​​​​​​id}​​​​​​​/deviceGroup/{​​​​​​​id}​​​​​​​/ethernet/{​​​​​​​id}​​​​​​​/ipv4/{​​​​​​​id}​​​​​​​/igmp
+            PATCH: /api/v1/sessions/{​​​​​​​id}​​​​​​​/ixnetwork/topology/{​​​​​​​id}​​​​​​​/deviceGroup/{​​​​​​​id}​​​​​​​/ethernet/{​​​​​​​id}​​​​​​​/ipv4/{​​​​​​​id}​​​​​​​/igmp/{​​​​​​​id}​​​​​​​
+        Example:
+        Return
+            /api/v1/sessions/{​​​​​​​id}​​​​​​​/ixnetwork/topology/{​​​​​​​id}​​​​​​​/deviceGroup/{​​​​​​​id}​​​​​​​/ethernet/{​​​​​​​id}​​​​​​​/ipv4/{​​​​​​​id}​​​​​​​/igmp/{​​​​​​​id}​​​​​​​
+        """
         # To create new IGMP object
         igmpObj = None
         if 'igmp' not in ipObj.href:
@@ -1119,7 +1137,7 @@ class Protocol(object):
         for key, value in kwargs.items():
             if key in mplsAttributes:
                 key = key[0].capitalize() + key[1:]
-                multivalueObj = eval('mplsObj.find().'+key)
+                multivalueObj = eval("mplsObj.find()."+key)
                 if type(value) == dict:
                     self.configMultivalue(multivalueObj, 'counter', value)
                 else:
@@ -1166,7 +1184,7 @@ class Protocol(object):
         Return
             /api/v1/sessions/{id}/ixnetwork/topology/{id}/deviceGroup/{id}/ethernet/{id}/ipv4/{id}/vxlan/{id}
         """
-                if obj != None:
+        if obj != None:
             if 'vxlan' not in obj:
                 vxlanId = obj.Ipv4.find().Vxlan.add()
 
@@ -1449,12 +1467,12 @@ class Protocol(object):
             self.ixnObj.logInfo('Config router lsa type')
             if kwargs['routerLsaBit'] == 'B':
                 data = {'value': 'True'}
-                multivalue = eval('simRouteObj.'+pseudoRouter+'.find().BBit')
+                multivalue = eval("simRouteObj."+pseudoRouter+".find().BBit")
                 self.configMultivalue(multivalue, 'singleValue', data)
 
             elif kwargs['routerLsaBit'] == 'E':
                 data = {'value': 'True'}
-                multivalue = eval('simRouteObj.'+pseudoRouter+'.find().EBit')
+                multivalue = eval("simRouteObj."+pseudoRouter+".find().EBit")
                 self.configMultivalue(multivalue, 'singleValue', data)
 
     def prefixPoolsConnector(self, prefixPoolsObj, protocolObj):
@@ -2342,7 +2360,7 @@ class Protocol(object):
         for eachDeviceGroup in deviceGroupObjList:
             ethernetObjList = eachDeviceGroup.Ethernet.find()
             for ethernetObj in ethernetObjList:
-                ipProtocolList = eval('ethernetObj.' + ipType + '.find()')
+                ipProtocolList = eval("ethernetObj." + ipType + ".find()")
                 if not ipProtocolList:
                     self.ixnObj.logWarning('{0} is not configured in {1}'.format(ipType, ethernetObj))
                     raise IxNetRestApiException('Layer3 is not configured in {0}'.format(ethernetObj))
@@ -2524,7 +2542,7 @@ class Protocol(object):
         ipv4ObjSessionList = self.ixNetwork.Topology.find.DeviceGroup.find().Ethernet.find().Ipv4.find()
         ipv4Obj = [ipv4Obj for ipv4Obj in ipv4ObjSessionList if ipv4Obj.Address.Values == srcIpAddress]
         if ipv4Obj is not None:
-            return [ipv4Obj.parent.parent, pv4Obj]
+            return [ipv4Obj.parent.parent, ipv4Obj]
         else:
             return None
           
@@ -2587,7 +2605,7 @@ class Protocol(object):
             None: No ipAddress found in any NetworkGroup.
             network group Object: The Network Group object.
         """
-       grpObjList = None
+        grpObjList = None
         if '.' in networkGroupIpAddress:
             grpObjList = self.ixNetwork.Topology.find().DeviceGroup.find().NetworkGroup.find().Ipv4PrefixPools.find()
         if ':' in networkGroupIpAddress:
@@ -3019,16 +3037,16 @@ class Protocol(object):
             for currentProtocol in l3ProtocolList:
                 currentProtocol = currentProtocol[0].capitalize()+currentProtocol[1:]
                 try:
-                    if eval('devGrpObj.Ethernet.find()'):
-                        outPutList.append(eval('devGrpObj.Ethernet.find()').href)
-                    if eval('devGrpObj.Ethernet.find().Ipv4.find()'):
-                        outPutList.append(eval('devGrpObj.Ethernet.find().Ipv4.find().'+ currentProtocol +'.find()').href)
-                        if eval('devGrpObj.Ethernet.find().Ipv4.find().'+ currentProtocol +'.find()'):
-                            outPutList.append(eval('devGrpObj.Ethernet.find().Ipv4.find()').href)
-                    if eval('devGrpObj.Ethernet.find().Ipv6.find()'):
-                        outPutList.append(eval('devGrpObj.Ethernet.find().Ipv6.find()').href)
-                        if eval('devGrpObj.Ethernet.find().Ipv6.find().'+ currentProtocol +'.find()'):
-                            outPutList.append(eval('devGrpObj.Ethernet.find().Ipv6.find().'+ currentProtocol +'.find()').href)
+                    if eval("devGrpObj.Ethernet.find()"):
+                        outPutList.append(eval("devGrpObj.Ethernet.find()").href)
+                    if eval("devGrpObj.Ethernet.find().Ipv4.find()"):
+                        outPutList.append(eval("devGrpObj.Ethernet.find().Ipv4.find()."+ currentProtocol +".find()").href)
+                        if eval("devGrpObj.Ethernet.find().Ipv4.find()."+ currentProtocol +".find()"):
+                            outPutList.append(eval("devGrpObj.Ethernet.find().Ipv4.find()").href)
+                    if eval("devGrpObj.Ethernet.find().Ipv6.find()"):
+                        outPutList.append(eval("devGrpObj.Ethernet.find().Ipv6.find()").href)
+                        if eval("devGrpObj.Ethernet.find().Ipv6.find()."+ currentProtocol +".find()"):
+                            outPutList.append(eval("devGrpObj.Ethernet.find().Ipv6.find()."+ currentProtocol +".find()").href)
                 except:
                     pass
             if outPutList != []:
@@ -3122,8 +3140,8 @@ class Protocol(object):
                             for currentProtocol in l3ProtocolList:
                                 currentProtocol = currentProtocol[0].capitalize() + currentProtocol[1:]
                                 try:
-                                    if eval('layer3Ip.' + currentProtocol + '.find()'):
-                                        deviceGroupObjects.append(eval('layer3Ip.' + currentProtocol + '.find()').href)
+                                    if eval("layer3Ip." + currentProtocol + ".find()"):
+                                        deviceGroupObjects.append(eval("layer3Ip." + currentProtocol + ".find()").href)
                                 except:
                                     pass
 
@@ -3166,8 +3184,8 @@ class Protocol(object):
         """
         devGrpObj = self.ixNetwork.Topology.find().DeviceGroup.find(Name=deviceGroupName)
         try:
-            if eval('devGrpObj.Ethernet.find().Ipv4.find().'+ endpointObj +'.find()'):
-                obj = eval('devGrpObj.Ethernet.find().Ipv4.find().'+ endpointObj +'.find()')
+            if eval("devGrpObj.Ethernet.find().Ipv4.find()."+ endpointObj +".find()"):
+                obj = eval("devGrpObj.Ethernet.find().Ipv4.find()."+ endpointObj +".find()")
                 print("returning obj", obj)
                 return obj
         except:
@@ -3947,7 +3965,6 @@ class Protocol(object):
                                  Example: ['225.0.0.3', '225.0.0.4']
             action: join|leave
         """
-      
         if routerId:
             deviceGroupObj = self.getDeviceGroupByRouterId(routerId=routerId)
             if deviceGroupObj == 0:
@@ -4529,7 +4546,7 @@ class Protocol(object):
             else:
                 eachNgpfEndpoint = eachNgpfEndpoint[0:1].capitalize() + eachNgpfEndpoint[1:]
                 obj = eval('obj.' + eachNgpfEndpoint + ".find(Name=ngpfEndpointName)")
-        self.ixnObj.logInfo('getNgpfObjectHandleByName: %s' % obj)
+        # self.ixnObj.logInfo('getNgpfObjectHandleByName: %s' % obj)
         return obj
 
     def getNgpfObjectHandleByRouterId(self, ngpfEndpointObject, routerId):
