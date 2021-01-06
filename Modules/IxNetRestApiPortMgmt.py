@@ -6,7 +6,7 @@ from ixnetwork_restpy.assistants.ports.portmapassistant import PortMapAssistant
 class PortMgmt(object):
     def __init__(self, ixnObj=None):
         self.ixnObj = ixnObj
-        self.ixNetObj = ixnObj.ixNetwork
+        self.ixNetwork = ixnObj.ixNetwork
 
     def getSelfObject(self):
         # For Python Robot Framework support
@@ -26,7 +26,7 @@ class PortMgmt(object):
         """
         counterStop = 45
         for counter in range(1, counterStop + 1):
-            chassisStatus = self.ixNetObj.AvailableHardware.Chassis.add(Hostname=chassisIp)
+            chassisStatus = self.ixNetwork.AvailableHardware.Chassis.add(Hostname=chassisIp)
             if chassisStatus.State != 'ready':
                 self.ixnObj.logInfo('\nChassis {0} is not connected yet. Waiting {1}/{2} seconds'.format(chassisIp,
                                                                                            counter, counterStop))
@@ -61,7 +61,7 @@ class PortMgmt(object):
             self.ixnObj.logInfo("Connecting to chassis {}".format(ixChassisIp))
             for counter in range(1, timeout+1):
 
-                chassisStatus = self.ixNetObj.AvailableHardware.Chassis.add(Hostname=ixChassisIp)
+                chassisStatus = self.ixNetwork.AvailableHardware.Chassis.add(Hostname=ixChassisIp)
                 if chassisStatus.State != 'ready':
                     self.ixnObj.logInfo('\nChassis {0} is not connected yet. Waiting {1}/{2} seconds'.format(ixChassisIp,
                                                                                                counter, timeout))
@@ -87,7 +87,7 @@ class PortMgmt(object):
         """
         self.ixnObj.logInfo("disconnecting from chassis {}".format(chassisIp))
         try:
-            self.ixNetObj.AvailableHardware.Chassis.find(Hostname=chassisIp).remove()
+            self.ixNetwork.AvailableHardware.Chassis.find(Hostname=chassisIp).remove()
         except :
             raise Exception("Failed disconnecting chassis {}".format(chassisIp))
 
@@ -109,13 +109,13 @@ class PortMgmt(object):
         """
         self.createVports(portList)
         testPorts = []
-        vportList = [vport for vport in self.ixNetObj.Vport.find()]
+        vportList = [vport for vport in self.ixNetwork.Vport.find()]
         for port in portList:
             testPorts.append(dict(Arg1=port[0], Arg2=port[1], Arg3=port[2]))
 
         self.ixnObj.logInfo('\nAssignPorts: {0}'.format(portList))
         try :
-            self.ixNetObj.AssignPorts(testPorts, [], vportList, True)
+            self.ixNetwork.AssignPorts(testPorts, [], vportList, True)
         except :
             raise Exception("Failed to Assign ports {} ".format(portList))
 
@@ -135,7 +135,7 @@ class PortMgmt(object):
             createdVportList = []
             self.ixnObj.logInfo('\n Creating Vports for portList {}'.format(portList))
             for i in range(1,len(portList)+1) :
-                createdVportList.append(self.ixNetObj.Vport.add())
+                createdVportList.append(self.ixNetwork.Vport.add())
             if createdVportList ==[] :
                 raise Exception("Uable to create vports")
             return createdVportList
@@ -155,7 +155,7 @@ class PortMgmt(object):
         """
 
         self.ixnObj.logInfo("getting vport object for portname {}".format(portName))
-        for vport in self.ixNetObj.Vport.find() :
+        for vport in self.ixNetwork.Vport.find() :
             if vport.Name == portName :
                 return vport
         else :
@@ -194,7 +194,7 @@ class PortMgmt(object):
         self.ixnObj.logInfo("Link {} operation for ports {}".format(action,port))
         for eachPort in port:
             self.ixnObj.logInfo("\n Make port {} to {} state".format(":".join(eachPort),action))
-            for vport in self.ixNetObj.Vport.find(AssignedTo=":".join(eachPort)):
+            for vport in self.ixNetwork.Vport.find(AssignedTo=":".join(eachPort)):
                 vport.LinkUpDn(action)
 
     def getAllVportList(self):
@@ -207,7 +207,7 @@ class PortMgmt(object):
                                     <ixnetwork_restpy.testplatform.sessions.ixnetwork.vport.vport.Vport object at 0x04FB0F80>]
         """
         self.ixnObj.logInfo("Get vports for all ports")
-        vportList = self.ixNetObj.Vport.find()
+        vportList = self.ixNetwork.Vport.find()
         if not vportList :
             raise Exception ("vport list is empty hence failing")
         return vportList
@@ -300,7 +300,7 @@ class PortMgmt(object):
             if 'Port Released' in vport.ConnectionStatus :
                 raise Exception(vport.ConnectionStatus)
         else:
-            for vport in self.ixNetObj.Vport.find():
+            for vport in self.ixNetwork.Vport.find():
                 if 'Port Released' in vport.ConnectionStatus :
                     raise Exception(vport.ConnectionStatus)
 
@@ -329,19 +329,19 @@ class PortMgmt(object):
         if createVports :
             self.createVports(portList)
         testPorts = []
-        vportList = [vport for vport in self.ixNetObj.Vport.find()]
+        vportList = [vport for vport in self.ixNetwork.Vport.find()]
         for port in portList:
             testPorts.append(dict(Arg1=port[0], Arg2=port[1], Arg3=port[2]))
         self.ixnObj.logInfo('\nAssignPorts: {0}'.format(portList))
 
         try :
-            self.ixNetObj.AssignPorts(testPorts, [], vportList, forceTakePortOwnership)
+            self.ixNetwork.AssignPorts(testPorts, [], vportList, forceTakePortOwnership)
         except :
             raise Exception("Failed to Assign ports {} ".format(portList))
 
         if configPortName:
             # Name the vports
-            for vportObj in self.ixNetObj.Vport.find():
+            for vportObj in self.ixNetwork.Vport.find():
                 port = vportObj.AssignedTo
                 card = port.split(':')[1]
                 port = port.split(':')[2]
@@ -359,7 +359,7 @@ class PortMgmt(object):
         """
 
         self.ixnObj.logInfo('Unassign all ports')
-        for vport in self.ixNetObj.Vport.find() :
+        for vport in self.ixNetwork.Vport.find() :
             vport.UnassignPorts(Arg2=deleteVirtualPorts)
 
     def releaseAllPorts(self):
@@ -368,7 +368,7 @@ class PortMgmt(object):
             Release all the connected ports.
         """
         self.ixnObj.logInfo('Release all ports from configuration')
-        for vport in self.ixNetObj.Vport.find() :
+        for vport in self.ixNetwork.Vport.find() :
             vport.ReleasePort()
             
     def releasePorts(self, portList):
@@ -416,7 +416,7 @@ class PortMgmt(object):
             ixChassisIp = port[0]
             cardId = port[1]
             portId = port[2]
-            for chassisObj in self.ixNetObj.AvailableHardware.Chassis.find(Hostname=ixChassisIp):
+            for chassisObj in self.ixNetwork.AvailableHardware.Chassis.find(Hostname=ixChassisIp):
                 for cardObj in chassisObj.Card.find(CardId=cardId):
                     portObj = cardObj.Port.find(PortId=portId)
                     if portObj:
@@ -477,7 +477,7 @@ class PortMgmt(object):
             ixChassisIp = port[0]
             cardId = port[1]
             portId = port[2]
-            for chassisObj in self.ixNetObj.AvailableHardware.Chassis.find(Hostname=ixChassisIp):
+            for chassisObj in self.ixNetwork.AvailableHardware.Chassis.find(Hostname=ixChassisIp):
                 for cardObj in chassisObj.Card.find(CardId=cardId):
                     portObj = cardObj.Port.find(PortId=portId)
                     if portObj:
@@ -504,22 +504,20 @@ class PortMgmt(object):
             timeout: <int>: The timeout value to declare as failed. Default=70 seconds.
         """
 
-        vportList = [vport for vport in self.ixNetObj.Vport.find()]
+        vportList = [vport for vport in self.ixNetwork.Vport.find()]
         for vport in vportList:
             for counter in range(1,timeout+1):
-
                 if 'Port Released' in vport.ConnectionStatus:
                     raise Exception(vport.ConnectionStatus)
-
-                if  not vport.isConnected :
-                    self.ixnObj.logWarning('\nThe vport {0} is not assigned to a physical port. Skipping this vport verification.'.format(eachVport))
+                if  not vport.IsConnected :
+                    self.ixnObj.logWarning('\nThe vport {0} is not assigned to a physical port. Skipping this vport verification.'.format(vport.href))
                     break
-                if counter < timeout and ['down', 'connecting'] in vport.ConnectionState:
+                if vport.ConnectionState in ['down', 'connecting'] :
                     time.sleep(1)
                     continue
-                if counter < timeout and ['up', 'connectedLinkUp'] in vport.ConnectionState:
+                if vport.ConnectionState in ['up', 'connectedLinkUp']:
                     break
-                if counter == timeout  and ['assignedInUseByOther','assignedUnconnected','connectedLinkDown'] in vport.ConnectionState:
+                if counter == timeout  and vport.ConnectionState in ['assignedInUseByOther','assignedUnconnected','connectedLinkDown'] :
                     # Failed
                     raise IxNetRestApiException('Port failed to come up')
 
@@ -541,7 +539,7 @@ class PortMgmt(object):
             regexString = regexString + '(' + str(port[0])+':'+str(port[1])+':'+str(port[2]) + ')'
             if port != portList[-1]:
                 regexString = regexString + '|'
-        vports = [vport for vport in self.ixNetObj.Vport.find(AssignedTo=regexString)]
+        vports = [vport for vport in self.ixNetwork.Vport.find(AssignedTo=regexString)]
         if not vports :
             raise Exception("unable to find vports for ports {} ".format(portList))
         return vports
@@ -565,7 +563,8 @@ class PortMgmt(object):
             vportList = self.getVports(portList)
 
         for vport in vportList:
-            cardType = vport.Type.capitalize()
+            cardType = vport.Type
+            cardType = cardType[0].upper() + cardType[1:]
             cardObj = eval('vport' + '.L1Config.' + cardType)
             cardObj.Media = mediaType
 
