@@ -10,7 +10,7 @@
 #
 
 from __future__ import absolute_import, print_function, division
-import sys, requests, datetime, platform
+import sys, requests, datetime, platform, time
 from ixnetwork_restpy import SessionAssistant
 from ixnetwork_restpy import TestPlatform
 
@@ -175,6 +175,7 @@ class Connect:
         self.robotFrameworkStdout = robotFrameworkStdout
         self.linuxChassisIp = linuxChassisIp
         self.linuxApiServerTimeout = linuxApiServerTimeout
+        self.sessionId = sessionId
 
         # Make Robot print to stdout
         if self.robotFrameworkStdout:
@@ -182,44 +183,78 @@ class Connect:
             self.robotStdout = _Misc()
             Connect.robotStdout = self.robotStdout
 
-        if generateLogFile:
-            if generateLogFile:
-                # Default the log file name
-                self.restLogFile = 'ixNetRestApi_debugLog.txt'
-                Connect.enableDebugLogFile = True
-                Connect.debugLogFile = self.restLogFile
+        if generateLogFile == True:
+           # Default the log file name
+           self.restLogFile = 'ixNetRestApi_debugLog.txt'
+           Connect.enableDebugLogFile = True
+           Connect.debugLogFile = self.restLogFile
 
-            if type(generateLogFile) != bool:
-                self.restLogFile = generateLogFile
-                
-        if serverOs == 'linux':
+        if type(generateLogFile) != bool:
+           self.restLogFile = generateLogFile
+
+        if self.serverOs == 'windows':
+            if self.apiServerPort is None:
+                self.apiServerPort = 11009
+            else:
+                self.apiServerPort = serverIpPort
+            self.testPlatform = TestPlatform(ip_address=self.linuxApiServerIp,
+                                            rest_port=self.apiServerPort,
+                                            platform=self.serverOs,
+                                            verify_cert=verifySslCert,
+                                            log_file_name=self.restLogFile)
+            self.session = self.testPlatform.Sessions.add()
+            self.sessionId = self.session.Id
+            self.ixNetwork = self.session.Ixnetwork
+
+        if self.serverOs == 'windowsConnectionMgr':
+            if self.sessionId:
+                self.testPlatform = TestPlatform(ip_address=self.linuxApiServerIp,
+                                                 rest_port=self.apiServerPort,
+                                                 platform=self.serverOs,
+                                                 verify_cert=verifySslCert,
+                                                 log_file_name=self.restLogFile)
+            # self.testPlatform = sessionAssistant.Ixnetwork
+
+        if self.serverOs == 'linux':
             if self.apiServerPort == None:
                 self.apiServerPort = 443
+
+            if username is None or password is None:
+                self.username = 'admin'
+                self.password = 'admin'
+
             self.testPlatform = TestPlatform(ip_address=self.linuxApiServerIp,
                                              rest_port=self.apiServerPort,
-                                             platform='linux',
-                                             verify_cert=verifySslCert)
+                                             platform=self.serverOs,
+                                             verify_cert=verifySslCert,
+                                             log_file_name=self.restLogFile)
             self.testPlatform.Authenticate(self.username, self.password)
+
             if apiKey != None and sessionId == None:
                 raise IxNetRestApiException('Providing an apiKey must also provide a sessionId.')
-            # Connect to an existing session on the Linux API server
+                # Connect to an existing session on the Linux API server
             if apiKey and sessionId:
                 self.session = self.testPlatform.Sessions.find(Id=sessionId)
+                self.ixNetwork = self.session.Ixnetwork
 
             if apiKey == None and sessionId:
                 self.session = self.testPlatform.Sessions.find(Id=sessionId)
+                self.ixNetwork = self.session.Ixnetwork
+
             if apiKey == None and sessionId == None:
                 self.session = self.testPlatform.Sessions.add()
-            self.ixNetwork = self.session.Ixnetwork
-            self.session_name = self.session.Name
+                self.sessionId = self.session.Id
+                self.ixNetwork = self.session.Ixnetwork
+                ## TODO
+                # self.session_name = self.session.Name
 
-        if licenseServerIp or licenseMode or licenseTier:
-            self.configLicenseServerDetails(licenseServerIp, licenseMode, licenseTier)
-            
-        # For Linux API Server and Windoww Connection Mgr only: Delete the session when script is done
-        self.deleteSessionAfterTest = deleteSessionAfterTest
-        if includeDebugTraceback == False:
-            sys.tracebacklimit = 0
+            if licenseServerIp or licenseMode or licenseTier:
+                self.configLicenseServerDetails(licenseServerIp, licenseMode, licenseTier)
+
+            # For Linux API Server and Windoww Connection Mgr only: Delete the session when script is done
+            self.deleteSessionAfterTest = deleteSessionAfterTest
+            if includeDebugTraceback == False:
+                sys.tracebacklimit = 0
 
     def get(self, restApi, data={}, stream=False, silentMode=False, ignoreError=False, maxRetries=5):
         """
@@ -339,7 +374,7 @@ class Connect:
            Delete the instance session ID. For Linux and Windows Connection Manager only.
         """
         if self.deleteSessionAfterTest:
-            session = TestPlatform(self.linuxApiServerIp).Sessions.find()
+            session = self.testPlatform.Sessions.find()
             session.remove()
 
     def logInfo(self, msg, end='\n', timestamp=True):
@@ -439,7 +474,15 @@ class Connect:
               'userName': 'admin'}
            }
         """
-        pass
+        sessionId = {}
+        sessions = self.testPlatform.Sessions.find()
+        for session in sessions:
+            sessionId.update({session.Id: {
+                'state': session.State,
+                'UserName': session.UserName
+            }})
+
+        return sessionId
 
     def showErrorMessage(self, silentMode=False):
         """
@@ -481,54 +524,7 @@ class Connect:
            httpAction: (get|post): Defaults to GET. For chassisMgmt, it uses POST.
            timeout: (int): The time allowed to wait for success completion in seconds.
         """
-
-        if not silentMode:
-            self.logInfo('\nwaitForComplete:', timestamp=False)
-            self.logInfo("\tState: %s " % response.json()["state"], timestamp=False)
-
-        if not response.json():
-            raise IxNetRestApiException('waitForComplete: response is empty.')
-
-        if response.json() == '' or response.json()['state'] == 'SUCCESS':
-            return response
-
-        if 'errors' in response.json():
-            raise IxNetRestApiException(response.json()["errors"][0])
-
-        if response.json()['state'] in ["ERROR", "EXCEPTION"]:
-            raise IxNetRestApiException('WaitForComplete: STATE=%s: %s' % (response.json()['state'], response.text))
-
-        for counter in range(1, timeout + 1):
-            if httpAction == 'get':
-                response = self.get(url, silentMode=True)
-            if httpAction == 'post':
-                response = self.post(url, silentMode=True)
-
-            state = response.json()["state"]
-            if not silentMode:
-                if state != 'SUCCESS':
-                    self.logInfo("\tState: {0}: Wait {1}/{2} seconds".format(state, counter, timeout), timestamp=False)
-                if state == 'SUCCESS':
-                    self.logInfo("\tState: {0}".format(state), timestamp=False)
-
-            if counter < timeout and state in ["IN_PROGRESS", "down"]:
-                time.sleep(1)
-                continue
-
-            if counter < timeout and state in ["ERROR", "EXCEPTION"]:
-                # ignoreException is for assignPorts.  Don't want to exit test.
-                # Verify port connectionStatus for: License Failed and Version Mismatch to report problem immediately.
-                if ignoreException:
-                    return response
-                raise IxNetRestApiException(response.text)
-
-            if counter < timeout and state == 'SUCCESS':
-                return response
-
-            if counter == timeout and state != 'SUCCESS':
-                if ignoreException:
-                    return response
-                raise IxNetRestApiException('waitForComplete failed: %s' % response.json())
+        pass
 
     def connectToLinuxIxosChassis(self, chassisIp, username, password):
         self.ixNetwork.ConnectToChassis(chassisIp)
@@ -564,9 +560,9 @@ class Connect:
         Syntax
             GET: /api/v1/sessions/9999/ixnetworkglobals/license
         """
-        licenseServerIp = self.ixNetwork.globals.Licensing.LicensingServers
-        licenseServerMode = self.ixNetwork.globals.Licensing.Mode
-        licenseServerTier = self.ixNetwork.globals.Licensing.Tier
+        licenseServerIp = self.ixNetwork.Globals.Licensing.LicensingServers
+        licenseServerMode = self.ixNetwork.Globals.Licensing.Mode
+        licenseServerTier = self.ixNetwork.Globals.Licensing.Tier
         return licenseServerIp, licenseServerMode, licenseServerTier
 
     def configLicenseServerDetails(self, licenseServer=None, licenseMode=None, licenseTier=None):
@@ -585,7 +581,7 @@ class Connect:
         # Each new session requires configuring the new session's license details.
 
         if licenseServer:
-            self.ixNetwork.Globals.Licensing.LicensingServers = licenseServer
+            self.ixNetwork.Globals.Licensing.LicensingServers = [licenseServer]
         if licenseMode:
             self.ixNetwork.Globals.Licensing.Mode = licenseMode
         if licenseTier:
@@ -619,18 +615,17 @@ class Connect:
             
         """
         activeSessionDict = {}
-        availableSessions = TestPlatform(self.linuxApiServerIp).Sessions.find()
+        availableSessions = self.testPlatform.Sessions.find()
+
         for session in availableSessions:
             if session.State == 'ACTIVE':
-                activeSessionDict.update({session.Id: 
-                                                    {'id':session.Id,
+                activeSessionDict.update({session.Id: {'id':session.Id,
                                                       'sessionIdUrl':session.href, 
                                                       'username':session.UserName,
-                                                      'state':session.State }
-                                         }
-                                         )
+                                                      'state':session.State}
+                                         })
 
-            return activeSessionDict
+        return activeSessionDict
 
     def linuxServerStopAndDeleteSession(self):
         """
@@ -667,7 +662,7 @@ class Connect:
             sessionId = sessionId
         else:
             sessionId = self.sessionId
-
+        print("removing sesionId", sessionId)
         self.testPlatform.Sessions.find(sessionId).remove()
 
     def linuxServerDeleteSession(self, sessionId=None):
@@ -678,7 +673,7 @@ class Connect:
         Paramter
           sessionId: (str): The session ID to delete on the Linux API server.
 
-        Syntax
+        Syntax:1
             DELETE: /api/v1/sessions/{id}/operations/stop
         """
         if sessionId is not None:
@@ -697,23 +692,29 @@ class Connect:
            url: (str): The URL's ID of the operation to verify.
            timeout: (int): The timeout value.
         """
-        availableSessions = TestPlatform(self.linuxApiServerIp).Sessions.find()
+        foundUrl = False
+        availableSessions = self.testPlatform.Sessions.find()
         for session in availableSessions:
-            if session.href == url:
+            if url in session.href:
+                foundUrl = True
                 break
 
-        for counter in range(1, timeout + 1):
-            currentStatus = session.State
-            self.logInfo('\tCurrentStatus: {0}:  {1}/{2} seconds'.format(currentStatus, counter, timeout),
-                         timestamp=False)
-            if counter < timeout + 1 and currentStatus != 'Operation successfully completed':
-                time.sleep(1)
+        if foundUrl == True:
+            for counter in range(1, timeout + 1):
+                currentStatus = session.State
+                self.logInfo('\tCurrentStatus: {0}:  {1}/{2} seconds. SessionId {3}'.format(currentStatus, counter, timeout, session.Id),
+                             timestamp=False)
+                # if counter < timeout + 1 and currentStatus != 'Operation successfully completed':
+                if counter < timeout + 1 and currentStatus != 'ACTIVE':
+                    time.sleep(1)
 
-            if counter == timeout + 1 and currentStatus != 'Operation successfully completed':
-                return 1
+                if counter == timeout + 1 and currentStatus != 'ACTIVE':
+                    return 1
 
-            if counter < timeout + 1 and currentStatus == 'Operation successfully completed':
-                return 0
+                if counter < timeout + 1 and currentStatus == 'ACTIVE':
+                    return 0
+        else:
+            self.logInfo('\tUrl not found {0}'.format(url))
 
     def newBlankConfig(self):
         """
@@ -743,7 +744,7 @@ class Connect:
         Syntax
             /api/v1/sessions/{1}/ixnetwork/availableHardware/chassis/operations/refreshinfo
         """
-      chassisObj.RefreshInfo()
+        chassisObj.RefreshInfo()
 
     def query(self, data, silentMode=False):
         """
@@ -799,8 +800,7 @@ class Connect:
         Description
            Using the Select operation to query for objects using filters.
         """
-        response = self.ixNetwork.Select(data)
-        return response
+        pass
 
     def configMultivalue(self, multivalueUrl, multivalueType, data):
         """
@@ -876,6 +876,7 @@ class Connect:
               - All the attributes are listed on the right pane.
         """
         try:
+            attribute = attribute[0].capitalize() + attribute[1:]
             value = eval("obj." + attribute)
             values = self.getMultivalueValues(value)
             return values
@@ -905,14 +906,7 @@ class Connect:
         Syntax:
             /api/v1/sessions/{1}/ixnetwork/operations
         """
-        response = self._session.request('GET', sessionUrl + '/operations')
-        for item in response.json():
-            if 'operation' in item.keys():
-                print('\n', item['operation'])
-                print('\t%s' % item['description'])
-                if 'args' in item.keys():
-                    for nestedKey, nestedValue in item['args'][0].items():
-                        print('\t\t%s: %s' % (nestedKey, nestedValue))
+        pass
 
     @staticmethod
     def printDict(obj, nested_level=0, output=sys.stdout):
@@ -923,25 +917,25 @@ class Connect:
         spacing = '   '
         spacing2 = ' '
         if type(obj) == dict:
-            print('%s' % (nested_level * spacing), file=output)
+            print('%s' % ((nested_level) * spacing), file=output)
             for k, v in obj.items():
                 if hasattr(v, '__iter__'):
                     print('%s%s:' % ((nested_level + 1) * spacing, k), file=output, end='')
-                    IxNetRestMain.printDict(v, nested_level + 1, output)
+                    Connect.printDict(v, nested_level + 1, output)
                 else:
                     print('%s%s: %s' % ((nested_level + 1) * spacing, k, v), file=output)
 
             print('%s' % (nested_level * spacing), file=output)
         elif type(obj) == list:
-            print('%s[' % (nested_level * spacing), file=output)
+            print('%s[' % ((nested_level) * spacing), file=output)
             for v in obj:
                 if hasattr(v, '__iter__'):
-                    IxNetRestMain.printDict(v, nested_level + 1, file=output)
+                    Connect.printDict(v, nested_level + 1, output)
                 else:
                     print('%s%s' % ((nested_level + 1) * spacing, v), file=output)
-            print('%s]' % (nested_level * spacing), output)
+            print('%s]' % ((nested_level) * spacing), output)
         else:
-            print('%s%s' % ((nested_level * spacing2), obj), file=output)
+            print('%s%s' % ((nested_level * spacing2), obj), output)
 
     def placeholder(self):
         pass
