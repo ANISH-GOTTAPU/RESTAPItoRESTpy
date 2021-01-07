@@ -374,7 +374,7 @@ class Connect:
            Delete the instance session ID. For Linux and Windows Connection Manager only.
         """
         if self.deleteSessionAfterTest:
-            session = self.testPlatform.Sessions.find()
+            session = self.testPlatform.Sessions.find(Id=self.sessionId)
             session.remove()
 
     def logInfo(self, msg, end='\n', timestamp=True):
