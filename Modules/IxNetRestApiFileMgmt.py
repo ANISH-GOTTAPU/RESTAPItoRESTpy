@@ -13,7 +13,7 @@ class FileMgmt(object):
            ixnObj: (Object): The parent object.
         """
         self.ixnObj = ixnObj
-        self.ixNetObj = ixnObj.ixNetwork
+        self.ixNetwork = ixnObj.ixNetwork
 
     def setMainObject(self, mainObject):
         """
@@ -42,7 +42,7 @@ class FileMgmt(object):
 
         self.ixnObj.logInfo("Loading Config File {}".format(configFile))
         try:
-            self.ixNetObj.LoadConfig(Files(configFile, local_file=localFile))
+            self.ixNetwork.LoadConfig(Files(configFile, local_file=localFile))
         except:
             raise Exception("Failed to load config file {}".format(configFile))
 
@@ -72,7 +72,7 @@ class FileMgmt(object):
         destinationPath = localPath + '\\' + fileName
 
         try:
-            self.ixNetObj.CopyFile(windowsPathAndFileName, destinationPath)
+            self.ixNetwork.CopyFile(windowsPathAndFileName, destinationPath)
         except :
             raise Exception ("Copy File from {} to {} Failed".format(windowsPathAndFileName, destinationPath))
 
@@ -93,7 +93,6 @@ class FileMgmt(object):
             post: /api/v1/sessions/1/ixnetwork/operations/copyfile
             data: {'arg1': windowsPathAndFileName, 'arg2': '/api/v1/sessions/1/ixnetwork/files/'+fileName'}
         """
-        import datetime
 
         self.ixnObj.logInfo('\ncopyFileWindowsToLocalLinux: From: %s to %s\n' % (windowsPathAndFileName, localPath))
         fileName = windowsPathAndFileName.split('\\')[-1]
@@ -108,7 +107,7 @@ class FileMgmt(object):
         destinationPath = localPath + '/' + fileName
 
         try:
-            self.ixNetObj.CopyFile(windowsPathAndFileName, destinationPath)
+            self.ixNetwork.CopyFile(windowsPathAndFileName, destinationPath)
         except :
             raise Exception ("\ncopyFileWindowsToLocalLinux Error: Failed to download file from IxNetwork API Server ")
 
@@ -130,7 +129,6 @@ class FileMgmt(object):
            WindowsPathAndFileName =  'C:\\Users\\hgee\\AppData\\Local\\Ixia\\IxNetwork\\data\\result\\DP.Rfc2544Tput\\9e1a1f04-fca5-42a8-b3f3-74e5d165e68c\\Run0001\\TestReport.pdf'
            localPath = 'C:\\Results'
         """
-        import datetime
         self.log.info('\n\ncopyFileWindowsToLocalWindows: From: %s to %s\n\n' % (windowsPathAndFileName, localPath))
         fileName = windowsPathAndFileName.split('\\')[-1]
         fileName = fileName.replace(' ', '_')
@@ -142,7 +140,7 @@ class FileMgmt(object):
 
         destinationPath = localPath + '\\' + fileName
         self.log.info('\nCopying from {} -> {}'.format(windowsPathAndFileName, destinationPath))
-        self.ixNetObj.CopyFile(windowsPathAndFileName, destinationPath)
+        self.ixNetwork.CopyFile(windowsPathAndFileName, destinationPath)
 
     def _addTimestampToFile(self,filename):
         """
@@ -185,7 +183,6 @@ class FileMgmt(object):
             data: {'arg1': '/root/.local/share/Ixia/sdmStreamManager/common/bgpExportedConfigFile',
                    'arg2': '/api/v1/sessions/1/ixnetwork/files/'+fileName'}
         """
-        import datetime
 
         self.ixnObj.logInfo('\ncopyFileLinuxToLocalLinux: From: %s to %s\n' % (linuxApiServerPathAndFileName, localPath))
 
@@ -201,7 +198,7 @@ class FileMgmt(object):
         destinationPath = localPath + '/' + fileName
 
         try:
-            self.ixNetObj.CopyFile(linuxApiServerPathAndFileName, destinationPath)
+            self.ixNetwork.CopyFile(linuxApiServerPathAndFileName, destinationPath)
         except :
             raise Exception ("\ncopyFileLinuxToLocalLinux Error: Failed to download file from IxNetwork API Server ")
 
@@ -261,7 +258,7 @@ class FileMgmt(object):
             arg3 = True
 
         try :
-            self.ixNetObj.ResourceManager.ImportConfig(Arg2=json.dumps(dataObj) , Arg3 = arg3 )
+            self.ixNetwork.ResourceManager.ImportConfig(Arg2=json.dumps(dataObj) , Arg3 = arg3 )
         except :
             raise Exception ('\nimportJsonConfigObj Error')
 
@@ -285,7 +282,7 @@ class FileMgmt(object):
             arg3 = True
 
         try :
-            self.ixNetObj.ResourceManager.ImportConfigFile(Arg2=Files(jsonFileName) , Arg3 = arg3 )
+            self.ixNetwork.ResourceManager.ImportConfigFile(Arg2=Files(jsonFileName) , Arg3 = arg3 )
         except :
             raise Exception ('\nimportJsonConfigObj Error')
         
@@ -327,7 +324,7 @@ class FileMgmt(object):
         self.ixnObj.logInfo('Storing the exported file to: %s' % jsonFileName)
 
         try :
-            ret = self.ixNetObj.ResourceManager.ExportConfig(Arg2=xpathList, Arg3=True, Arg4= 'json')
+            ret = self.ixNetwork.ResourceManager.ExportConfig(Arg2=xpathList, Arg3=True, Arg4= 'json')
             convStrToDict=json.loads(ret)
             with open(jsonFileName,'w') as fp :
                 json.dump(convStrToDict,fp)
@@ -354,7 +351,7 @@ class FileMgmt(object):
         if xpathList == None:
             xpathList = ['/descendant-or-self::*']
         try :
-            ret = self.ixNetObj.ResourceManager.ExportConfig(Arg2=xpathList, Arg3=True, Arg4= 'json')
+            ret = self.ixNetwork.ResourceManager.ExportConfig(Arg2=xpathList, Arg3=True, Arg4= 'json')
             return (json.loads(ret))
         except :
             raise Exception("Failed Exporting Configuration")
@@ -423,12 +420,12 @@ class FileMgmt(object):
         """
 
         try:
-            self.ixNetObj.CollectLogs(Arg1=Files(diagZipFilename, local_file=True))
+            self.ixNetwork.CollectLogs(Arg1=Files(diagZipFilename, local_file=True))
         except :
             raise Exception("Failed Creating Diag logs")
 
         if localPath :
             try :
-                self.ixNetObj.CopyFile(Files(diagZipFilename, local_file=True), localPath + "\\" + diagZipFilename )
+                self.ixNetwork.CopyFile(Files(diagZipFilename, local_file=True), localPath + "\\" + diagZipFilename )
             except :
-                self.ixNetObj.CopyFile(Files(diagZipFilename, local_file=True), localPath + "/" + diagZipFilename)
+                self.ixNetwork.CopyFile(Files(diagZipFilename, local_file=True), localPath + "/" + diagZipFilename)
