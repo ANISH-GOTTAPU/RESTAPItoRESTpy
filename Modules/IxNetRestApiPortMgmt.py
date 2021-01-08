@@ -472,7 +472,9 @@ class PortMgmt(object):
             - 0: If portList are available
         """
         # Verify if the portList has duplicates.
-        exceptionFlag = 0
+        self.verifyForDuplicatePorts(portList)
+        self.ixnObj.logInfo('Verify if ports are currently owned')
+        portOwnedList = []
         for port in portList:
             ixChassisIp = port[0]
             cardId = port[1]
@@ -483,17 +485,14 @@ class PortMgmt(object):
                     if portObj:
                         if portObj.Owner != '':
                             self.ixnObj.logInfo('\n{0} is currently owned by: {1}'.format(port, portObj.Owner))
-                            exceptionFlag = 1
+                            portOwnedList.append([ixChassisIp, cardId, portId])
 
-        if exceptionFlag and raiseException:
-            raise Exception('Ports are not available')
-
-        if exceptionFlag and raiseException == False:
-            return 1
-
-        if exceptionFlag == 0:
-            # Ports are not owned
-            return 0
+        if portOwnedList != []:
+            if raiseException:
+                raise Exception('arePortsAvailable: Ports are still owned')
+            else:
+                return portOwnedList
+        return 0
 
     def verifyPortState(self, timeout=70):
         """
