@@ -11,7 +11,7 @@ class Statistics(object):
 
         # For takesnapshot()
         self.fileMgmtObj = FileMgmt(self.ixnObj)
-        self.ixNetObj = ixnObj.ixNetwork
+        self.ixNetwork = ixnObj.ixNetwork
 
     def setMainObject(self, mainObject):
         """
@@ -107,7 +107,7 @@ class Statistics(object):
            Get stats on row 2 for 'Tx Frames' = statDict[2]['Tx Frames']
         """
         try:
-            TrafficItemStats = StatViewAssistant(self.ixNetObj, viewName)
+            TrafficItemStats = StatViewAssistant(self.ixNetwork, viewName)
         except:
             raise Exception('getStats: Failed to get stats values')
 
@@ -117,7 +117,6 @@ class Statistics(object):
         if csvFile != None:
             csvFileName = csvFile.replace(' ', '_')
             if csvEnableFileTimestamp:
-                import datetime
                 timestamp = datetime.datetime.now().strftime('%H%M%S')
                 if '.' in csvFileName:
                     csvFileNameTemp = csvFileName.split('.')[0]
@@ -207,7 +206,7 @@ class Statistics(object):
         """
 
         try:
-            TrafficItemStats = StatViewAssistant(self.ixNetObj, viewName)
+            TrafficItemStats = StatViewAssistant(self.ixNetwork, viewName)
         except:
             raise Exception('getStats: Failed to get stats values')
 
@@ -217,7 +216,6 @@ class Statistics(object):
         if csvFile != None:
             csvFileName = csvFile.replace(' ', '_')
             if csvEnableFileTimestamp:
-                import datetime
                 timestamp = datetime.datetime.now().strftime('%H%M%S')
                 if '.' in csvFileName:
                     csvFileNameTemp = csvFileName.split('.')[0]
@@ -253,7 +251,7 @@ class Statistics(object):
            Removes all created stat views.
         """
         self.ixnObj.logInfo("Remove all tcl views")
-        self.ixNetObj.RemoveAllTclViews()
+        self.ixNetwork.RemoveAllTclViews()
 
     def takeSnapshot(self, viewName='Flow Statistics', windowsPath=None, isLinux=False, localLinuxPath=None,
                      renameDestinationFile=None, includeTimestamp=False, mode='overwrite'):
@@ -296,9 +294,7 @@ class Statistics(object):
 
         if isLinux:
             location = '/home/ixia_logs'
-        import pdb
-        pdb.set_trace()
-        self.ixNetObj.TakeViewCSVSnapshot(Arg1=[viewName],Arg2 = [
+        self.ixNetwork.TakeViewCSVSnapshot(Arg1=[viewName],Arg2 = [
                             "Snapshot.View.Contents: \"allPages\"",
                             "Snapshot.View.Csv.Location: \"{0}\"".format(location),
                             "Snapshot.View.Csv.GeneratingMode: \"%s\"" % mode,
@@ -320,16 +316,36 @@ class Statistics(object):
             self.fileMgmtObj.copyFileWindowsToLocalLinux('{0}\\{1}.csv'.format(windowsPath, viewName), localLinuxPath,
                                                          renameDestinationFile=renameDestinationFile,
                                                          includeTimestamp=includeTimestamp)
-        try:
-            self.ixNetObj.CopyFile(Files(location + "\\" + viewName + ".csv"), localLinuxPath+"/" + viewName + ".csv")
-        except:
-            self.ixNetObj.CopyFile(Files(location + "/" + viewName + ".csv"), localLinuxPath+"/" + viewName + ".csv")
+
 
     def getViewObject(self, viewName='Flow Statistics'):
+
         """
-        Not Rquired in Restpy
+        Description
+            To get just the statistic view object.
+            Mainly used by internal APIs such as takeCsvSnapshot that
+            requires the statistics view object handle.
+
+        Parameter
+         viewName:  Options (case sensitive):
+            "Port Statistics"
+            "Tx-Rx Frame Rate Statistics"
+            "Port CPU Statistics"
+            "Global Protocol Statistics"
+            "Protocols Summary"
+            "Port Summary"
+            "OSPFv2-RTR Drill Down"
+            "OSPFv2-RTR Per Port"
+            "IPv4 Drill Down"
+            "L2-L3 Test Summary Statistics"
+            "Flow Statistics"
+            "Traffic Item Statistics"
         """
-        pass
+        for viewObj in self.ixNetwork.Statistics.View.find():
+            if viewObj.Caption == viewName :
+                return viewObj
+        else :
+            raise Exception ("View object not available for view name {}".format(viewName))
 
     def clearStats(self):
         """
@@ -337,4 +353,4 @@ class Statistics(object):
             Clear all stats and wait for API server to finish.
         """
         self.ixnObj.logInfo("Clearing all statistics")
-        self.ixNetObj.ClearStats(Arg1= ['waitForPortStatsRefresh'])
+        self.ixNetwork.ClearStats(Arg1= ['waitForPortStatsRefresh'])
