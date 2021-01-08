@@ -38,7 +38,7 @@ class PacketCapture(object):
             captureObj.packetCaptureClearTabs()
         """
         self.ixnObj = ixnObj
-        self.ixNetObj = ixnObj.ixNetwork
+        self.ixNetwork = ixnObj.ixNetwork
         if portMgmtObj:
             self.portMgmtObj = portMgmtObj
         else:
@@ -85,7 +85,7 @@ class PacketCapture(object):
         Start packet capturing
         """
         try:
-            self.ixNetObj.StartCapture()
+            self.ixNetwork.StartCapture()
         except :
             raise Exception('\nFailed to start captures')
 
@@ -94,7 +94,7 @@ class PacketCapture(object):
         Stop packet capturing
         """
         try:
-            self.ixNetObj.StopCapture()
+            self.ixNetwork.StopCapture()
         except :
             raise Exception('\nFailed to stop captures')
 
@@ -103,7 +103,7 @@ class PacketCapture(object):
         Remove all captured tabs on Windows IxNetwork GUI
         """
         try:
-            self.ixNetObj.CloseAllTabs()
+            self.ixNetwork.CloseAllTabs()
         except :
             raise Exception ('\nFailed closing all tabs')
 
@@ -125,11 +125,9 @@ class PacketCapture(object):
             timestamp = int(time.time())
             if self.enableDataPlane:
                 packetCaptureFilenameData = 'packetCaptureForData_'+str(timestamp)
-                #subprocess.call(['touch', packetCaptureFilenameData])
 
             if self.enableControlPlane:
                 packetCaptureFilenameControl = 'packetCaptureForControl_'+str(timestamp)
-                #subprocess.call(['touch', packetCaptureFilenameControl])
 
             if self.enableDataPlane == False and self.enableControlPlane == False:
                 raise IxNetRestApiException('\nPacketCapture Error: You must enable one of the options: enableDataPlane|enableControlPlane')
@@ -321,9 +319,9 @@ class PacketCapture(object):
         vportName = vport.Name
 
         if appendToSavedCapturedFile != None:
-            self.ixNetObj.SaveCaptureFiles(Arg1 = saveToTempLocation , Arg2 = appendToSavedCapturedFile)
+            self.ixNetwork.SaveCaptureFiles(Arg1 = saveToTempLocation , Arg2 = appendToSavedCapturedFile)
         else:
-            self.ixNetObj.SaveCaptureFiles(Arg1=saveToTempLocation)
+            self.ixNetwork.SaveCaptureFiles(Arg1=saveToTempLocation)
 
         # example capfilePathName: 'c:\\Results\\1-7-2_HW.cap'
         if typeOfCapture == 'control':
@@ -343,6 +341,6 @@ class PacketCapture(object):
                 filename = vportName + "_HW.cap"
 
         try :
-            self.ixNetObj.CopyFile(Files(capFileToGet, local_file=False), localLinuxLocation + "\\" + filename + ".cap" )
+            self.ixNetwork.CopyFile(Files(capFileToGet, local_file=False), localLinuxLocation + "\\" + filename + ".cap" )
         except :
-            self.ixNetObj.CopyFile(Files(capFileToGet, local_file=False), localLinuxLocation + "/" + filename + ".cap")
+            self.ixNetwork.CopyFile(Files(capFileToGet, local_file=False), localLinuxLocation + "/" + filename + ".cap")
