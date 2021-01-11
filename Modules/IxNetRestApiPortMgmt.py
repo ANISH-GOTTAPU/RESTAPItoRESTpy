@@ -69,6 +69,7 @@ class PortMgmt(object):
 
                 if chassisStatus.State == 'ready':
                     self.ixnObj.logInfo('\n{0}'.format(chassisStatus))
+                    chassisObjList.append(chassisStatus)
                     break
 
                 if counter == timeout:
@@ -109,7 +110,7 @@ class PortMgmt(object):
         """
         self.createVports(portList)
         testPorts = []
-        vportList = [vport for vport in self.ixNetwork.Vport.find()]
+        vportList = self.ixNetwork.Vport.find()
         for port in portList:
             testPorts.append(dict(Arg1=port[0], Arg2=port[1], Arg3=port[2]))
 
@@ -155,12 +156,11 @@ class PortMgmt(object):
         """
 
         self.ixnObj.logInfo("getting vport object for portname {}".format(portName))
-        for vport in self.ixNetwork.Vport.find() :
-            if vport.Name == portName :
-                return vport
-        else :
+        vport = self.ixNetwork.Vport.find(Name=portName)
+        if vport:
+            return vport
+        else:
             raise Exception("Unable to find vportObj for portname {}".format(portName))
-
 
     def getVportName(self, vportObj):
         """
@@ -194,7 +194,8 @@ class PortMgmt(object):
         self.ixnObj.logInfo("Link {} operation for ports {}".format(action,port))
         for eachPort in port:
             self.ixnObj.logInfo("\n Make port {} to {} state".format(":".join(eachPort),action))
-            for vport in self.ixNetwork.Vport.find(AssignedTo=":".join(eachPort)):
+            vport = self.ixNetwork.Vport.find(AssignedTo=":".join(eachPort))
+            if vport :
                 vport.LinkUpDn(action)
 
     def getAllVportList(self):
@@ -286,7 +287,8 @@ class PortMgmt(object):
         portList = []
         for vport  in vportList :
             port = vport.AssignedTo
-            portList.append(port)
+            if port :
+                portList.append(port)
         return portList
 
     def verifyPortConnectionStatus(self, vport=None):
