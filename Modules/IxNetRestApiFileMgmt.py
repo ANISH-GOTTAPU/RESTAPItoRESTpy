@@ -129,7 +129,7 @@ class FileMgmt(object):
            WindowsPathAndFileName =  'C:\\Users\\hgee\\AppData\\Local\\Ixia\\IxNetwork\\data\\result\\DP.Rfc2544Tput\\9e1a1f04-fca5-42a8-b3f3-74e5d165e68c\\Run0001\\TestReport.pdf'
            localPath = 'C:\\Results'
         """
-        self.log.info('\n\ncopyFileWindowsToLocalWindows: From: %s to %s\n\n' % (windowsPathAndFileName, localPath))
+        self.ixnObj.logInfo('\n\ncopyFileWindowsToLocalWindows: From: %s to %s\n\n' % (windowsPathAndFileName, localPath))
         fileName = windowsPathAndFileName.split('\\')[-1]
         fileName = fileName.replace(' ', '_')
         if renameDestinationFile:
@@ -139,7 +139,7 @@ class FileMgmt(object):
             fileName = self._addTimestampToFile(fileName)
 
         destinationPath = localPath + '\\' + fileName
-        self.log.info('\nCopying from {} -> {}'.format(windowsPathAndFileName, destinationPath))
+        self.ixnObj.logInfo('\nCopying from {} -> {}'.format(windowsPathAndFileName, destinationPath))
         self.ixNetwork.CopyFile(windowsPathAndFileName, destinationPath)
 
     def _addTimestampToFile(self,filename):
