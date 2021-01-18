@@ -7,7 +7,6 @@ class Traffic(object):
     def __init__(self, ixnObj=None):
         self.ixnObj = ixnObj
         self.ixNetwork = ixnObj.ixNetwork
-        self.httpHeader = ixnObj.split('/api')[0]
 
     def setMainObject(self, mainObject):
         # For Python Robot Framework support
@@ -201,49 +200,105 @@ class Traffic(object):
         if mode == 'create' and trafficItem != None:
             trafficItemObj = self.ixNetwork.Traffic.TrafficItem.add()
 
-            for item in trafficItem.keys():
+            for item, value in trafficItem.items():
                 if item != 'trackBy':
                     itemObj = item[0:1].capitalize() + item[1:]
-                    eval("trafficItemObj." + "update(" + itemObj + " =  trafficItem[item])")
+                    setattr(trafficItemObj, itemObj, value)
                 else:
-                    trafficItemObj.Tracking.find().Values = trafficItem['trackBy']
+                    trafficItemObj.Tracking.find().TrackBy = value
 
-        if endpoints is not None and trafficItemObj is not None:
+            if endpoints is not None and trafficItemObj is not None:
                 # endPointSetValues = endpoints
                 for endPoint in endpoints:
                     endPointSetObj = trafficItemObj.EndpointSet.add(Name=endPoint['name'],
                                                                     Sources=endPoint['sources'],
                                                                     Destinations=endPoint['destinations'])
 
-        if configElements != "" and trafficItemObj is not None:
-            configElementObj = trafficItemObj.ConfigElement.find()
-            # configElementsValues = configElements
+            if configElements != "" and trafficItemObj is not None:
+                configElementObj = trafficItemObj.ConfigElement.find()
 
-            for item in configElements.keys():
-                itemObj = item[0:1].capitalize() + item[1:]
-                eval("configElementObj." + "update(" + itemObj + " =  configElements[item])")
+            for configElement in configElements:
+                if 'transmissionType' in configElement:
+                    configElementObj.TransmissionControl.Type = configElement['transmissionType']
+                    del configElement['transmissionType']
+
+                if 'frameCount' in configElement:
+                    configElementObj.TransmissionControl.FrameCount = configElement['frameCount']
+                    del configElement['frameCount']
+
+                if 'frameRate' in configElement:
+                    configElementObj.FrameRate.Rate = configElement['frameRate']
+                    del configElement['frameRate']
+
+                if 'frameRateType' in configElement:
+                    configElementObj.FrameRate.Type = configElement['frameRateType']
+                    del configElement['frameRateType']
+
+                if 'frameSize' in configElement:
+                    configElementObj.FrameSize.FixedSize = configElement['frameSize']
+                    del configElement['frameSize']
+
+                if 'portDistribution' in configElement:
+                    configElementObj.FrameRateDistribution.PortDistribution = configElement['portDistribution']
+                    del configElement['portDistribution']
+
+                if 'streamDistribution' in configElement:
+                    configElementObj.FrameRateDistribution.StreamDistribution = configElement['streamDistribution']
+                    del configElement['streamDistribution']
 
         elif mode == 'modify':
-            if trafficItem['name'] != "":
-                trafficItemObj = self.ixNetwork.Traffic.TrafficItem.find(Name = trafficItem['name'])
+            trafficItemObj = obj
 
-                for item in trafficItem.keys():
+            if trafficItem is not None:
+                for item, value in trafficItem.item():
                     if item != 'trackBy':
                         itemObj = item[0:1].capitalize() + item[1:]
                         eval("trafficItemObj." + "update(" + itemObj + " =  trafficItem[item])")
                     else:
                         trafficItemObj.Tracking.find().Values = trafficItem['trackBy']
 
-                if endpoints is not None and trafficItemObj is not None:
-                # endPointSetValues = endpoints
-                    for endPoint in endpoints:
-                        if 'name' in endPoint:
-                            endPointSetObj = trafficItemObj.EndpointSet.find(name=endPoint['name'])
-                            endPointSetObj.update(Sources=endPoint['sources'], Destinations=endPoint['destinations'])
-                        else:
-                            endPointSetObj = trafficItemObj.EndpointSet.add(Name=endPoint['name'],
-                                                                            Sources=endPoint['sources'],
-                                                                            Destinations=endPoint['destinations'])
+            endPointSetObj = trafficItemObj.EndpointSet.find()
+            if endpoints is not None and trafficItemObj is not None:
+                if 'name' in endpoints:
+                    endPointSetObj = trafficItemObj.EndpointSet.find(Name=endpoints['name'])
+                    endPointSetObj.Sources = endpoints['sources']
+                    endPointSetObj.Destinations = endpoints['destinations']
+                    # endPointSetObj.update(Sources=endpoints['sources'], Destinations=endpoints['destinations'])
+                else:
+                    endPointSetObj = trafficItemObj.EndpointSet.add(Name=endpoints['name'],
+                                                                    Sources=endpoints['sources'],
+                                                                    Destinations=endpoints['destinations'])
+            configElementObj = trafficItemObj.ConfigElement.find()
+            if configElements is not None and trafficItemObj is not None:
+                configElementObj = trafficItemObj.ConfigElement.find()
+
+                if 'transmissionType' in configElements:
+                    configElementObj.TransmissionControl.Type = configElements['transmissionType']
+                    del configElements['transmissionType']
+
+                if 'frameCount' in configElements:
+                    configElementObj.TransmissionControl.FrameCount = configElements['frameCount']
+                    del configElements['frameCount']
+
+                if 'frameRate' in configElements:
+                    configElementObj.FrameRate.Rate = configElements['frameRate']
+                    del configElements['frameRate']
+
+                if 'frameRateType' in configElements:
+                    configElementObj.FrameRate.Type = configElements['frameRateType']
+                    del configElements['frameRateType']
+
+                if 'frameSize' in configElements:
+                    configElementObj.FrameSize.FixedSize = configElements['frameSize']
+                    del configElements['frameSize']
+
+                if 'portDistribution' in configElements:
+                    configElementObj.FrameRateDistribution.PortDistribution = configElements['portDistribution']
+                    del configElements['portDistribution']
+
+                if 'streamDistribution' in configElements:
+                    configElementObj.FrameRateDistribution.StreamDistribution = configElements['streamDistribution']
+                    del configElements['streamDistribution']
 
         return [trafficItemObj, endPointSetObj, configElementObj]
 
@@ -281,15 +336,11 @@ class Traffic(object):
            streamDistribution: splitRateEvenly|applyRateToAll. Default=splitRateEvently
         """
         for item in configElements.keys():
-            if item in ['burstPacketCount', 'duration', 'frameCount', 'interBurstGap', 'interStreamGap',
-                        'iterationCount', 'minGapBytes', 'repeatBurst', 'startDelay']:
-                itemObj = item[0:1].capitalize() + item[1:]
-                eval("trafficitem.TransmissionControl." + "update(" + itemObj + " =  int(configElements[item]))")
-
             if item in ['enableInterBurstGap', 'enableInterStreamGap', 'interBurstGapUnits',
-                        'startDelayUnits', 'type']:
+                        'startDelayUnits', 'type', 'burstPacketCount', 'duration', 'frameCount',
+                        'interBurstGap', 'interStreamGap', 'iterationCount', 'minGapBytes', 'repeatBurst', 'startDelay']:
                 itemObj = item[0:1].capitalize() + item[1:]
-                eval("trafficitem.TransmissionControl." + "update(" + itemObj + " =  str(configElements[item]))")
+                eval("configElementObj.TransmissionControl.update("+itemObj + "=" + str(configElements[item])+")")
 
             if item == 'frameRateType':
                 configElementObj.FrameRate.Type = str(configElements[item])
@@ -366,6 +417,7 @@ class Traffic(object):
             trafficItemName = self.getTrafficItemName(trafficItemObj)
         if trafficItemName:
             trafficItemObj = self.ixNetwork.Traffic.TrafficItem.find(Name=trafficItemName)
+            # trafficItemObj = self.ixNetwork.Traffic.TrafficItem.find(Name='Topo1 to Topo2')
             if not trafficItemObj:
                 raise IxNetRestApiException('\nError: No traffic item name found: {0}'.format(trafficItemName))
             if endpointSetName:
@@ -489,7 +541,7 @@ class Traffic(object):
         if action == 'append':
             newStackObj = stackObj.AppendProtocol(protocolTemplateObj)
         if action == 'insert':
-            newStackObj = stackObj.InserProtocol(protocolTemplateObj)
+            newStackObj = stackObj.InsertProtocol(protocolTemplateObj)
         self.ixnObj.logInfo('addTrafficItemPacketStack: Returning: %s' % newStackObj, timestamp=False)
         allStackObj = configElementObj.Stack.find()
         for eachStack in allStackObj:
@@ -521,18 +573,14 @@ class Traffic(object):
             trafficItem = self.ixNetwork.Traffic.TrafficItem.find(Name=trafficItemName)
             if trafficItem is None:
                 raise IxNetRestApiException('\nNo such Traffic Item name found: %s' % trafficItemName)
-            trafficItemObj = trafficItem.href
-            configElementObj = trafficItemObj + '/configElement/1'
+            configElementObj = trafficItem[0].ConfigElement.find()[0]
         stacks = configElementObj.Stack.find()
-
         for eachStack in stacks:
             currentStackDisplayName = eachStack.DisplayName.strip()
             self.ixnObj.logInfo('Packet header name: {0}'.format(currentStackDisplayName), timestamp=False)
             if bool(re.match('^{0}$'.format(packetHeaderName), currentStackDisplayName, re.I)):
                 self.ixnObj.logInfo('\nstack: {0}: {1}'.format(eachStack, currentStackDisplayName), timestamp=False)
-                stackObj = eachStack.href
-                return stackObj
-
+                return eachStack
         raise IxNetRestApiException(
             '\nError: No such stack name found. Verify stack name existence and spelling: %s' % packetHeaderName)
 
@@ -582,7 +630,6 @@ class Traffic(object):
         for (index, eachStackObj) in enumerate(stackObj):
             self.ixnObj.logInfo('{0}: {1}'.format(index + 1, eachStackObj.DisplayName), timestamp=False)
             if stackId == index + 1:
-                self.ixnObj.logInfo('\tReturning: %s' % self.httpHeader + eachStackObj.href, timestamp=False)
                 return eachStackObj
 
     def modifyTrafficItemPacketHeader(self, configElementObj, packetHeaderName, fieldName, values):
@@ -692,7 +739,7 @@ class Traffic(object):
 
         configElementObj = self.getConfigElementObj(trafficItemObj=trafficItemObj, trafficItemName=trafficItemName,
                                                     endpointSetName=endpointSetName)
-        self.modifyTrafficItemPacketHeader(configElementObj, packetHeaderName='ethernet',
+        self.modifyTrafficItemPacketHeader(configElementObj, packetHeaderName='ethernet II',
                                            fieldName='Destination MAC Address', values=values)
 
     def showPacketHeaderFieldNames(self, stackObj):
@@ -767,34 +814,39 @@ class Traffic(object):
             raise IxNetRestApiException('Failed to located your provided fieldName:', fieldName)
         self.ixnObj.logInfo('configPacketHeaderFieldId:  fieldIdObj: %s' % stackIdObj.href + '/field/' + str(fieldId),
                             timestamp=False)
-        fieldObj.ValueType = data.get('valueType')
+        if data.get('valueType'):
+            fieldObj.ValueType = data.get('valueType')
+        else:
+            fieldObj.ValueType = 'singleValue'
+            data['valueType'] = 'singleValue'
+
         if data.get('auto'):
             fieldObj.Auto = data['auto']
         if data.get('valueType') == 'singleValue':
-            fieldObj.SingleValue = data['singleValue'] if data.get('singleValue') else 0
+            fieldObj.SingleValue = data['fieldValue'] if data.get('fieldValue') else 0
         elif data.get('valueType') in ['increment', 'decrement']:
-            for item in data.keys():
+            for item,value in data.items():
                 if item in ['startValue', 'stepValue', 'countValue']:
                     itemObj = item[0:1].capitalize() + item[1:]
-                    eval("fieldObj." + "update(" + itemObj + " =  int(data[item]))")
+                    setattr(fieldObj, itemObj, value)
         elif data.get('valueType') == 'valueList':
             if data.get('valueList'):
                 fieldObj.ValueList = data['valueList']
         elif data.get('valueType') == 'random':
-            for item in data.keys():
+            for item, value in data.items():
                 if item in ['countValue', 'seed', 'randomMask', 'fixedBits']:
                     itemObj = item[0:1].capitalize() + item[1:]
-                    eval("fieldObj." + "update(" + itemObj + " =  int(data[item]))")
+                    setattr(fieldObj, itemObj, value)
         elif data.get('valueType') == 'repeatableRandomRange':
-            for item in data.keys():
+            for item,value in data.items():
                 if item in ['countValue', 'seed', 'stepValue', 'maxValue', 'minValue']:
                     itemObj = item[0:1].capitalize() + item[1:]
-                    eval("fieldObj." + "update(" + itemObj + " =  int(data[item]))")
+                    setattr(fieldObj, itemObj, value)
         elif data.get('valueType') == 'nonRepeatableRandom':
-            for item in data.keys():
+            for item, value in data.items():
                 if item in ['randomMask', 'fixedBits']:
                     itemObj = item[0:1].capitalize() + item[1:]
-                    eval("fieldObj." + "update(" + itemObj + " =  int(data[item]))")
+                    setattr(fieldObj, itemObj, value)
 
     def getPacketHeaderAttributesAndValues(self, streamObj, packetHeaderName, fieldName):
         """
@@ -827,7 +879,8 @@ class Traffic(object):
             if packetHeaderName == eachStack.DisplayName.strip():
                 fieldObj = eachStack.Field.find()
                 for eachField in fieldObj:
-                    if fieldName == eachField.DisplayName:
+                    # if fieldName == eachField.DisplayName:
+                    if fieldName in eachField.DisplayName:
                         return eachField
 
     def configEgressCustomTracking(self, trafficItemObj, offsetBits, widthBits):
@@ -857,17 +910,17 @@ class Traffic(object):
         egressTrackingOffsetFilter = 'Custom: ({0}bits at offset {1})'.format(int(bitWidth), int(offsetBit))
         trafficItemName = self.getTrafficItemName(trafficItemObj)
         self.ixnObj.logInfo('Creating new statview for egress stats...')
-        egressStatViewObj = self.ixNetwork.Statistics.View.add(Caption=egressStatViewName,
+        self.ixNetwork.Statistics.View.add(Caption=egressStatViewName,
                                                                TreeViewNodeName='Egress Custom Views',
                                                                Type='layer23TrafficFlow', Visible=True)
-        self.ixnObj.logInfo('egressStatView Object: %s' % egressStatViewObj.href)
 
         self.ixnObj.logInfo('Creating layer23TrafficFlowFilter')
         # Dynamically get the PortFilterId
+        egressStatViewObj = self.ixNetwork.Statistics.View.find(Caption=egressStatViewName)
+        self.ixnObj.logInfo('egressStatView Object: %s' % egressStatViewObj.href)
         availablePortFilterObj = egressStatViewObj.AvailablePortFilter.find()
         portFilterId = []
         for eachPortFilterId in availablePortFilterObj:
-            # 192.168.70.10/Card2/Port1
             self.ixnObj.logInfo('\tAvailable PortFilterId: %s' % eachPortFilterId.Name, timestamp=False)
             if eachPortFilterId.Name == egressTrackingPort:
                 self.ixnObj.logInfo('\tLocated egressTrackingPort: %s' % egressTrackingPort, timestamp=False)
@@ -931,12 +984,16 @@ class Traffic(object):
         return egressStatViewObj
 
     def enableTrafficItem(self, trafficItemNumber):
-        trafficItemObj = self.ixNetwork.Traffic.TrafficItem.find()[trafficItemNumber - 1]
-        trafficItemObj.Enabled = True
+        trafficItemObj = self.ixNetwork.Traffic.TrafficItem.find()
+        if trafficItemNumber > len(trafficItemObj):
+            raise IxNetRestApiException("Please provide correct traffic item number")
+        trafficItemObj[trafficItemNumber - 1].Enabled = True
 
     def disableTrafficItem(self, trafficItemNumber):
-        trafficItemObj = self.ixNetwork.Traffic.TrafficItem.find()[trafficItemNumber - 1]
-        trafficItemObj.Enabled = False
+        trafficItemObj = self.ixNetwork.Traffic.TrafficItem.find()
+        if trafficItemNumber > len(trafficItemObj):
+            raise IxNetRestApiException("Please provide correct traffic item number")
+        trafficItemObj[trafficItemNumber - 1].Enabled = False
 
     def enableAllTrafficItems(self, mode=True):
         """
@@ -1004,9 +1061,8 @@ class Traffic(object):
             expectedState.split(' ')
 
         self.ixnObj.logInfo('checkTrafficState: Expecting state: {0}\n'.format(expectedState))
-        trafficItemObj = self.ixNetwork.Traffic.TrafficItem.find()
         if trafficItemList is None:
-            trafficItemList = trafficItemObj
+            trafficItemList = self.ixNetwork.Traffic.TrafficItem.find()
 
         for eachTrafficItem in trafficItemList:
             for counter in range(1, timeout + 1):
@@ -1014,16 +1070,11 @@ class Traffic(object):
 
                 if currentTrafficState == 'unapplied':
                     self.ixnObj.logWarning('\nCheckTrafficState: Traffic is UNAPPLIED')
+                    eachTrafficItem.Generate()
                     self.applyTraffic()
-
-                self.ixnObj.logInfo('\ncheckTrafficState: {}'.format(eachTrafficItem))
-                self.ixnObj.logInfo(
-                    '\t{trafficState}: Expecting: {expectedStates}.'.format(trafficState=currentTrafficState,
-                                                                            expectedStates=expectedState),
-                    timestamp=False)
-
-                self.ixnObj.logInfo('\tWaited {counter}/{timeout} seconds'.format(counter=counter, timeout=timeout),
-                                    timestamp=False)
+                    trafficItemName = eachTrafficItem.Name
+                    eachTrafficItem = self.getTrafficItemObjByName(trafficItemName=trafficItemName)
+                
 
                 if counter <= timeout and currentTrafficState not in expectedState:
                     time.sleep(1)
@@ -1101,7 +1152,9 @@ class Traffic(object):
         Parameter
             trafficItemName: The Raw Traffic Item name
         """
-        trafficItemObj = self.ixNetwork.Traffic.TrafficItem.find(Name=trafficItemName)
+        trafficItemObj = self.getTrafficItemObjByName(trafficItemName)
+        if trafficItemObj == 0:
+            raise IxNetRestApiException('\nNo such Traffic Item name: %s' % trafficItemName)
         fieldObj = trafficItemObj.ConfigElement.find().Stack.find(StackTypeId="ipv4").Field.find(
             FieldTypeId="ipv4.header.srcIp")
         sourceIp = fieldObj.FieldValue
@@ -1121,7 +1174,7 @@ class Traffic(object):
         trafficItemObj = self.getTrafficItemObjByName(trafficItemName)
         if trafficItemObj == 0:
             raise IxNetRestApiException('\nNo such Traffic Item name: %s' % trafficItemName)
-        return trafficItemObj.TrafficItemType
+        return trafficItemObj.TrafficType
 
     def enableTrafficItemByName(self, trafficItemName, enable=True):
         """
@@ -1162,7 +1215,14 @@ class Traffic(object):
             A list of Traffic Items
         """
         trafficItemObjList = self.ixNetwork.Traffic.TrafficItem.find()
-        return trafficItemObjList
+        trafficItemObj = []
+        if getEnabledTrafficItemsOnly:
+            for eachTrafficItem in trafficItemObjList:
+                if eachTrafficItem.Enabled:
+                    trafficItemObj.append(eachTrafficItem)
+            return trafficItemObj
+        else:
+            return trafficItemObjList
 
     def getAllTrafficItemNames(self):
         """
@@ -1174,24 +1234,6 @@ class Traffic(object):
         for eachTrafficItem in trafficItemObj:
             trafficItemNameList.append(eachTrafficItem.Name)
         return trafficItemNameList
-
-    def getTrafficItemObjByName_backup(self, trafficItemName):
-        """
-        Description
-            Get the Traffic Item object by the Traffic Item name.
-
-        Parameter
-            trafficItemName: Name of the Traffic Item.
-
-        Return
-            0: No Traffic Item name found. Return 0.
-            traffic item object:  /api/v1/sessions/1/ixnetwork/traffic/trafficItem/2
-        """
-        trafficItemObj = self.ixNetwork.Traffic.TrafficItem.find(Name=trafficItemName)
-        try:
-            return trafficItemObj
-        except:
-            return 0
 
     def getTrafficItemObjByName(self, trafficItemName):
         """
@@ -1206,9 +1248,9 @@ class Traffic(object):
             traffic item object:  /api/v1/sessions/1/ixnetwork/traffic/trafficItem/2
         """
         trafficItemObj = self.ixNetwork.Traffic.TrafficItem.find(Name=trafficItemName)
-        try:
+        if trafficItemObj:
             return trafficItemObj
-        except:
+        else:
             return 0
 
     def applyTraffic(self):
@@ -1229,16 +1271,9 @@ class Traffic(object):
                              ['/api/v1/sessions/1/ixnetwork/traffic/trafficItem/1', ...]
         """
         trafficItemObjList = []
-        trafficItemHrefList = []
         if trafficItemList == 'all':
             trafficItemsObj = self.ixNetwork.Traffic.TrafficItem.find()
             for eachTrafficItem in trafficItemsObj:
-                trafficItemHrefList.append(eachTrafficItem.href)
-                trafficItemObjList.append(eachTrafficItem)
-        elif type(trafficItemList) != list:
-            trafficItemList = trafficItemList.split(' ')
-            for eachTrafficItem in trafficItemList:
-                trafficItemHrefList.append(eachTrafficItem.href)
                 trafficItemObjList.append(eachTrafficItem)
         self.ixnObj.logInfo('Regenerating traffic items: %s' % trafficItemList)
         for eachTrafficItem in trafficItemObjList:
@@ -1348,11 +1383,23 @@ class Traffic(object):
                 dstList = []
                 for dest in endpointSet.Destinations:
                     dstList.append(dest.split('/ixnetwork')[1])
+                  
+                if cElement.FrameSize.Type == 'fixed':
+                    frameSize = cElement.FrameSize.FixedSize
+                elif cElement.FrameSize.Type == 'increment':
+                    frameSize = (cElement.FrameSize.IncrementFrom, cElement.FrameSize.IncrementTo, cElement.FrameSize.IncrementStep)
+                elif cElement.FrameSize.Type == 'random':
+                    frameSize = (cElement.FrameSize.RandomMin, cElement.FrameSize.RandomMax)
+                elif cElement.FrameSize.Type == 'presetDistribution':
+                    frameSize = cElement.FrameSize.PresetDistribution
+                elif cElement.FrameSize.Type == 'quadGaussian':
+                    frameSize = cElement.FrameSize.QuadGaussian
+                elif cElement.FrameSize.Type == 'weightedPairs':
+                    frameSize = cElement.FrameSize.WeightedPairs
 
                 self.ixnObj.logInfo('\t    Sources: {0}'.format(srcList), timestamp=False)
                 self.ixnObj.logInfo('\t    Destinations: {0}'.format(dstList), timestamp=False)
-                self.ixnObj.logInfo('\t    FrameType: {0}  FrameSize: {1}'.format(cElement.FrameSize.Type,
-                                                                                  cElement.FrameSize.FixedSize),
+                self.ixnObj.logInfo('\t    FrameType: {0}  FrameSize: {1}'.format(cElement.FrameSize.Type, frameSize),
                                     timestamp=False)
                 self.ixnObj.logInfo('\t    TranmissionType: {0}  FrameCount: {1}  BurstPacketCount: {2}'.format(
                     cElement.TransmissionControl.Type, cElement.TransmissionControl.FrameCount,
@@ -1378,7 +1425,10 @@ class Traffic(object):
             trafficObj.setFrameSize('Topo1 to Topo2', type='increment', incrementFrom=68, incrementStep=2,
             incrementTo=1200)
         """
-        frameSizeObj = self.ixNetwork.Traffic.TrafficItem(Name=trafficItemName).ConfigElement.find().FrameSize
+        trafficItemObj = self.ixNetwork.Traffic.TrafficItem.find(Name=trafficItemName)
+        if not trafficItemObj:
+            raise IxNetRestApiException('\nNo such Traffic Item name found: %s' % trafficItemName)
+        frameSizeObj = trafficItemObj.ConfigElement.find().FrameSize
         frameSizeObj.Type = kwargs.get('type')
         frameSizeType = kwargs.get('type')
         if frameSizeType == 'fixed':
@@ -1414,8 +1464,9 @@ class Traffic(object):
         """
         framePayloadObj = configElementObj.FramePayload
         framePayloadObj.Type = payloadType
-        framePayloadObj.CustomRepeat = customRepeat
-        framePayloadObj.CustomPattern = customPattern
+        if payloadType.lower() == 'custom':
+            framePayloadObj.CustomRepeat = customRepeat
+            framePayloadObj.CustomPattern = customPattern
 
     def enableMinFrameSize(self, enable=True):
         """

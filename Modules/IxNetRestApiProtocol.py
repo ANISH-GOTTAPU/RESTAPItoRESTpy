@@ -723,7 +723,7 @@ class Protocol(object):
         for key, value in kwargs.items():
             if key in dhcpServerSessionAttributes:
                 key = key[0:1].capitalize() + key[1:]
-                multivalObj = eval("dhcpServerSessionObj.find()."+key)
+                multivalObj = eval("dhcpServerSessionObj."+key)
                 try:
                     if type(value) == dict:
                         self.configMultivalue(multivalObj, 'counter', value)
@@ -1821,88 +1821,46 @@ class Protocol(object):
         Description
             Start all RSVP-TE Interface.
         """
-        queryData = {'from': '/',
-                     'nodes': [{'node': 'topology',    'properties': ['name'], 'where': []},
-                              {'node': 'deviceGroup', 'properties': [], 'where': []},
-                              {'node': 'ethernet',    'properties': [], 'where': []},
-                              {'node': 'ipv4',        'properties': [], 'where': []},
-                              {'node': 'rsvpteIf',    'properties': [], 'where': []}]
-                     }
-        queryResponse = self.ixnObj.query(data=queryData)
-        for topologyObj in queryResponse.json()['result'][0]['topology']:
-            for deviceGroupObj in topologyObj['deviceGroup']:
-                if deviceGroupObj['ethernet'][0]['ipv4'][0]['rsvpteIf']:
-                    for rsvpTeIfObj in deviceGroupObj['ethernet'][0]['ipv4'][0]['rsvpteIf']:
-                        data = {'arg1': [rsvpTeIfObj['href']]}
-                        self.ixnObj.post(self.ixnObj.httpHeader+rsvpTeIfObj['href']+'/operations/start', data=data)
+        rsvpTeList = self.ixNetwork.Topology.find().DeviceGroup.find().Ethernet.find().Ipv4.find().RsvpteIf.find()
+        for rsvpObj in rsvpTeList:
+            rsvpObj.start()
 
     def startAllRsvpTeLsps(self):
         """
         Description
             Start all RSVP-TE LSPS (Tunnels).
         """
-        queryData = {'from': '/',
-                     'nodes': [{'node': 'topology',    'properties': ['name'], 'where': []},
-                              {'node': 'deviceGroup', 'properties': [], 'where': []},
-                              {'node': 'ethernet',    'properties': [], 'where': []},
-                              {'node': 'ipv4',        'properties': [], 'where': []},
-                              {'node': 'rsvpteLsps',    'properties': [], 'where': []}]
-                     }
-        queryResponse = self.ixnObj.query(data=queryData)
-        for topologyObj in queryResponse.json()['result'][0]['topology']:
-            for deviceGroupObj in topologyObj['deviceGroup']:
-                if deviceGroupObj['ethernet'][0]['ipv4'][0]['rsvpteLsps']:
-                    for rsvpTeLspsObj in deviceGroupObj['ethernet'][0]['ipv4'][0]['rsvpteLsps']:
-                        data = {'arg1': [rsvpTeLspsObj['href']]}
-                        self.ixnObj.post(self.ixnObj.httpHeader+rsvpTeLspsObj['href']+'/operations/start', data=data)
+        rsvpTeLspList = self.ixNetwork.Topology.find().DeviceGroup.find().Ethernet.find().Ipv4.find().RsvpteLsps.find()
+        for rsvpTeLspObj in rsvpTeLspList:
+            rsvpTeLspObj.start()
 
     def verifyDeviceGroupStatus(self):
-        queryData = {'from': '/',
-                     'nodes': [{'node': 'topology', 'properties': [], 'where': []},
-                                  {'node': 'deviceGroup', 'properties': ['href', 'enabled'], 'where': []},
-                                  {'node': 'deviceGroup', 'properties': ['href', 'enabled'], 'where': []}]
-                     }
-
-        queryResponse = self.ixnObj.query(data=queryData)
-
         deviceGroupTimeout = 90
-        for topology in queryResponse.json()['result'][0]['topology']:
-            for deviceGroup in topology['deviceGroup']:
-                deviceGroupObj = deviceGroup['href']
-                response = self.ixnObj.get(self.ixnObj.httpHeader+deviceGroupObj, silentMode=False)
-                # Verify if the Device Group is enabled. If not, don't go further.
-                enabledMultivalue = response.json()['enabled']
-                enabled = self.ixnObj.getMultivalueValues(enabledMultivalue, silentMode=False)
-                if enabled[0] == 'true':
-                    for counter in range(1,deviceGroupTimeout+1):
-                        response = self.ixnObj.get(self.ixnObj.httpHeader+deviceGroupObj, silentMode=False)
-                        deviceGroupStatus = response.json()['status']
-                        self.ixnObj.logInfo('\t%s' % deviceGroupObj, timestamp=False)
-                        self.ixnObj.logInfo('\t\tStatus: %s' % deviceGroupStatus, timestamp=False)
-                        if counter < deviceGroupTimeout and deviceGroupStatus != 'started':
-                            self.ixnObj.logInfo('\t\tWaiting %d/%d seconds ...' % (counter, deviceGroupTimeout), timestamp=False)
+        innerDeviceGroupObj = None
+        deviceGroupList = self.ixNetwork.Topology.find().DeviceGroup.find()
+        for counter in range(1, deviceGroupTimeout + 1):
+            for deviceGroupObj in deviceGroupList:
+                deviceGroupStatus = deviceGroupObj.Status
+                if counter < deviceGroupTimeout and deviceGroupStatus != 'started':
+                    self.ixnObj.logInfo('\t\tWaiting %d/%d seconds ...' % (counter, deviceGroupTimeout),
+                                        timestamp=False)
+                    time.sleep(1)
+                if counter < deviceGroupTimeout and deviceGroupStatus == 'started':
+                    break
+                if counter == deviceGroupTimeout and deviceGroupStatus != 'started':
+                    raise IxNetRestApiException('\nDevice Group failed to start up')
+
+                innerDeviceGroupObj = deviceGroupObj.DeviceGroup.find()
+                for counter in range(1, deviceGroupTimeout):
+                    for innerDeviceGroupObj in innerDeviceGroupObj:
+                        innerDeviceGroupStatus = innerDeviceGroupObj.Status
+                        if counter < deviceGroupTimeout and innerDeviceGroupStatus != 'started':
+                            self.ixnObj.logInfo('\tWait %d/%d' % (counter, deviceGroupTimeout), timestamp=False)
                             time.sleep(1)
-                        if counter < deviceGroupTimeout and deviceGroupStatus == 'started':
+                        if counter < deviceGroupTimeout and innerDeviceGroupStatus == 'started':
                             break
-                        if counter == deviceGroupTimeout and deviceGroupStatus != 'started':
-                            raise IxNetRestApiException('\nDevice Group failed to start up')
-                    
-                    # Inner Device Group
-                    if deviceGroup['deviceGroup']:
-                        innerDeviceGroupObj = deviceGroup['deviceGroup'][0]['href']
-                        for counter in range(1,deviceGroupTimeout):
-                            response = self.ixnObj.get(self.ixnObj.httpHeader+innerDeviceGroupObj, silentMode=True)
-                            innerDeviceGroupStatus = response.json()['status']
-                            self.ixnObj.logInfo('\tInnerDeviceGroup: %s' % innerDeviceGroupObj, timestamp=False)
-                            self.ixnObj.logInfo('\t   Status: %s' % innerDeviceGroupStatus, timestamp=False)
-                            if counter < deviceGroupTimeout and innerDeviceGroupStatus != 'started':
-                                self.ixnObj.logInfo('\tWait %d/%d' % (counter, deviceGroupTimeout), timestamp=False)
-                                time.sleep(1)
-                            if counter < deviceGroupTimeout and innerDeviceGroupStatus == 'started':
-                                break
-                            if counter == deviceGroupTimeout and innerDeviceGroupStatus != 'started':
-                                raise IxNetRestApiException('\nInner Device Group failed to start up')
-        print()
+                        if counter == deviceGroupTimeout and innerDeviceGroupStatus != 'started':
+                            raise IxNetRestApiException('\nInner Device Group failed to start up')
 
     def startAllProtocols(self):
         """
@@ -3210,16 +3168,26 @@ class Protocol(object):
             ['/api/v1/sessions/1/ixnetwork/topology/2/deviceGroup/2/ethernet/1/ipv4/1/bgpIpv4Peer']
         """
         protoReturnList = []
+        protocol = protocol[0:1].capitalize()+protocol[1:]
         if deviceGroupName is None:
-            vportList = self.ixNetwork.Vport.find()
-            
-            for vportObj in vportList:
-                protocolList = self.getProtocolListByPortNgpf(portName=vportObj.Name)
-                protoList = protocolList['deviceGroup'][0]
-                for protoHref in protoList:
-                    if protocol in protoHref:
-                        print("comparing " + protocol + "with" + protoHref)
-                        return protoHref
+            topoObjList = self.getAllTopologyList()
+            for topoObj in topoObjList:
+                deviceGroupList = topoObj.DeviceGroup.find()
+                for deviceGroupObj in deviceGroupList:
+                    try:
+                        if eval('deviceGroupObj.Ethernet.find().Ipv4.find().' + protocol + '.find()'):
+                            protoObj = 'deviceGroupObj.Ethernet.find().Ipv4.find().' + protocol + '.find()'
+                            protoReturnList.append(protoObj)
+                        if eval('deviceGroupObj.Ethernet.find().Ipv6.find().' + protocol + '.find()'):
+                            protoObj = 'deviceGroupObj.Ethernet.find().Ipv6.find().' + protocol + '.find()'
+                            protoReturnList.append(protoObj)
+                        if eval('deviceGroupObj.Ethernet.find().' + protocol + '.find()'):
+                           protoObj = 'deviceGroupObj.Ethernet.find().' + protocol + '.find()'
+                           protoReturnList.append(protoObj)
+                    except:
+                        if eval('deviceGroupObj.Ethernet.find()'):
+                           protoObj = 'deviceGroupObj.Ethernet.find().'
+                           protoReturnList.append(protoObj)
         else:
             if eval('self.ixNetwork.Topology.find().DeviceGroup.find(deviceGroupName).Ethernet.find().Ipv4.find().'+ protocol +'.find()'):
                 protoObj = 'self.ixNetwork.Topology.find().DeviceGroup.find(deviceGroupName).Ethernet.find().Ipv4.find().'+ protocol +'.find()'
@@ -3231,7 +3199,7 @@ class Protocol(object):
                 protoObj = 'self.ixNetwork.Topology.find().DeviceGroup.find(deviceGroupName).Ethernet.find().'+ protocol +'.find()'
                 protoReturnList.append(protoObj)
 
-            return protoReturnList
+        return protoReturnList
 
     def getProtocolObjFromHostIp(self, topologyList, protocol):
         """

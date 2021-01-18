@@ -162,7 +162,6 @@ class Connect:
         self._session = requests.Session()
 
         self.serverOs = serverOs  # windows|windowsConnectionMgr|linux
-        self.jsonHeader = {"content-type": "application/json"}
         self.username = username
         self.password = password
         self.apiKey = apiKey
@@ -245,8 +244,6 @@ class Connect:
                 self.session = self.testPlatform.Sessions.add()
                 self.sessionId = self.session.Id
                 self.ixNetwork = self.session.Ixnetwork
-                ## TODO
-                # self.session_name = self.session.Name
 
             if licenseServerIp or licenseMode or licenseTier:
                 self.configLicenseServerDetails(licenseServerIp, licenseMode, licenseTier)
@@ -270,6 +267,9 @@ class Connect:
 
         Syntax
             /api/v1/sessions/1/ixnetwork/operations
+
+        Note:
+            This API is not needed in RestPY, Added pass to avoid exception
         """
         pass
 
@@ -288,6 +288,8 @@ class Connect:
            noDataJsonDumps: (bool): True: Use json dumps. False: Accept the data as-is.
            ignoreError: (bool): True: Don't raise an exception.  False: The response will be returned.
            maxRetries: <int>: The maximum amount of GET retries before declaring as server connection failure.
+        Note:
+            This API is not needed in RestPY, Added pass to avoid exception
         """
         pass
 
@@ -303,6 +305,8 @@ class Connect:
            silentMode: (bool):  To display on stdout: URL, data and header info.
            ignoreError: (bool): True: Don't raise an exception.  False: The response will be returned.
            maxRetries: <int>: The maximum amount of GET retries before declaring as server connection failure.
+        Note:
+            This API is not needed in RestPY, Added pass to avoid exception
         """
         pass
 
@@ -317,7 +321,9 @@ class Connect:
            restApi: (str): The REST API URL.
            silentMode: (bool):  To display on stdout: URL, data and header info.
            ignoreError: (bool): True: Don't raise an exception.  False: The response will be returned.
-           maxRetries: <int>: The maximum amount of GET retries before declaring as server connection failu
+           maxRetries: <int>: The maximum amount of GET retries before declaring as server connection failure
+        Note:
+            This API is not needed in RestPY, Added pass to avoid exception
         """
         pass
         
@@ -333,6 +339,8 @@ class Connect:
            data: (dict): The data payload for the URL.
            headers: (str): The headers to use for the URL.
            maxRetries: <int>: The maximum amount of GET retries before declaring as server connection failure.
+        Note:
+            This API is not needed in RestPY, Added pass to avoid exception
         """
         pass
 
@@ -365,6 +373,8 @@ class Connect:
           ixNetRestServerIp: (str): The Windows IxNetwork API Server IP address.
           ixNetRestServerPort: (str): Default: 11009.  Provide a port number to connect to.
                                On a Linux API Server, a socket port is not needed. State "None".
+        Note:
+            This API is not needed in RestPY, since class constructor is handling creation of sessions
         """
         pass
 
@@ -523,11 +533,13 @@ class Connect:
 
            httpAction: (get|post): Defaults to GET. For chassisMgmt, it uses POST.
            timeout: (int): The time allowed to wait for success completion in seconds.
+        Note:
+            This API is not needed in RestPY, Added pass to avoid exception
         """
         pass
 
     def connectToLinuxIxosChassis(self, chassisIp, username, password):
-        self.ixNetwork.ConnectToChassis(chassisIp)
+        self.ixNetwork.ConnectToChassis(Arg1=chassisIp)
 
     def connectToLinuxApiServer(self, linuxServerIp, linuxServerIpPort, username='admin', password='admin',
                                 verifySslCert=False, timeout=120):
@@ -905,6 +917,8 @@ class Connect:
 
         Syntax:
             /api/v1/sessions/{1}/ixnetwork/operations
+        Note:
+            This API is not needed in RestPY, Added pass to avoid exception
         """
         pass
 
@@ -938,4 +952,8 @@ class Connect:
             print('%s%s' % ((nested_level * spacing2), obj), output)
 
     def placeholder(self):
+        """
+        Note:
+            This API is not needed in RestPY, Added pass to avoid exception
+        """
         pass
