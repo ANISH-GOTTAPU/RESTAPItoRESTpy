@@ -228,7 +228,6 @@ class PortMgmt(object):
                                     <ixnetwork_restpy.testplatform.sessions.ixnetwork.vport.vport.Vport object at 0x04FB0F80>]
         """
         vportList = []
-
         self.ixnObj.logInfo("get vport objects for portList {}".format(portList))
         for vport in self.ixnObj.ixNetwork.Vport.find():
             assignedTo = vport.AssignedTo
@@ -244,7 +243,6 @@ class PortMgmt(object):
 
         if not vportList :
             raise Exception("Unable to find vport for the given portList {} ".format(portList))
-
         return vportList
 
     def getPhysicalPortsFromCreatedVports(self):
@@ -336,9 +334,9 @@ class PortMgmt(object):
             testPorts.append(dict(Arg1=port[0], Arg2=port[1], Arg3=port[2]))
         self.ixnObj.logInfo('\nAssignPorts: {0}'.format(portList))
 
-        try :
+        try:
             self.ixNetwork.AssignPorts(testPorts, [], vportList, forceTakePortOwnership)
-        except :
+        except:
             raise Exception("Failed to Assign ports {} ".format(portList))
 
         if configPortName:
