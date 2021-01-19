@@ -1,5 +1,7 @@
 import sys, re, os, json, platform, io
 from IxNetRestApi import IxNetRestApiException
+from ixnetwork_restpy.files import Files
+import datetime
 
 
 class FileMgmt(object):
@@ -12,6 +14,7 @@ class FileMgmt(object):
            ixnObj: (Object): The parent object.
         """
         self.ixnObj = ixnObj
+        self.ixNetwork = ixnObj.ixNetwork
 
     def setMainObject(self, mainObject):
         """
@@ -37,54 +40,12 @@ class FileMgmt(object):
             localFile: (bool): For Windows API server and Connection Mgr running on a Windows server only.
                                Set to False if the config file is in the Windows API server filesystem.
         """
-        if localFile == False:
-            # The config file is located in Windows
-            fileName = configFile.split('\\')[-1]
-            copyFileUrl = self.ixnObj.sessionUrl+'/operations/copyfile'            
-            destinationPath = '{0}/ixnetwork/files/'.format(self.ixnObj.headlessSessionId) + fileName
-            response = self.ixnObj.post(copyFileUrl,data={"arg1": configFile, "arg2": destinationPath})
-            self.ixnObj.waitForComplete(response, self.ixnObj.httpHeader+'/'+response.json()['url'], silentMode=False, timeout=30)
 
-        if localFile == True:
-            if os.path.exists(configFile) is False:
-                raise IxNetRestApiException("Config file doesn't exists: %s" % configFile)
-
-            if self.ixnObj.serverOs == 'linux':
-                octetStreamHeader = {'content-type': 'application/octet-stream', 'x-api-key': self.ixnObj.apiKey}
-            else:
-                octetStreamHeader = {'content-type': 'application/octet-stream'}
-
-            fileName = configFile.split('/')[-1]
-
-            # Read the config file
-            self.ixnObj.logInfo('\nReading saved config file')
-            with open(configFile, mode='rb') as byteFile:
-                configContents = byteFile.read()
-                configContents = io.BytesIO(configContents)
-
-            # Upload it to the server and give it any name you want for the filename
-            uploadFile = self.ixnObj.sessionUrl+'/files?filename='+fileName
-            self.ixnObj.logInfo('\nUploading file to server: %s' % uploadFile)
-
-            # Note: 
-            #    There is no status checking for this POST. This command is synchronous. The server won't return until it's done.
-            #    The response payload: {'absolute': None, 'files': [{'name': 'bgp_ngpf_8.30.ixncfg', 'length': 177791, 'modifiedUnixTime': 1572009307,
-            #                                                        'createdUnixTime': 1568302806}], 'directories': []}
-            response = self.ixnObj.post(uploadFile, data=configContents, noDataJsonDumps=True, headers=octetStreamHeader, silentMode=False)
-
-        loadConfigUrl = self.ixnObj.sessionUrl+'/operations/loadconfig'
-
-        # Set the payload to load the given filename:  /api/v1/sessions/{id}/ixnetwork/files/ospfNgpf_8.10.ixncfg
-        payload = {'arg1': '{0}/ixnetwork/files/{1}'.format(self.ixnObj.headlessSessionId, fileName)}
-        
-        # Tell the server to load the config file
-        if localFile == True:
-            response = self.ixnObj.post(loadConfigUrl, data=payload)
-            
-        if localFile == False:
-            response = self.ixnObj.post(loadConfigUrl, data=payload)
-
-        self.ixnObj.waitForComplete(response, self.ixnObj.httpHeader+response.json()['url'], silentMode=False, timeout=140)
+        self.ixnObj.logInfo("Loading Config File {}".format(configFile))
+        try:
+            self.ixNetwork.LoadConfig(Files(configFile, local_file=localFile))
+        except:
+            raise Exception("Failed to load config file {}".format(configFile))
 
     def copyFileWindowsToRemoteWindows(self, windowsPathAndFileName, localPath, renameDestinationFile=None, includeTimestamp=False):
         """
@@ -99,51 +60,22 @@ class FileMgmt(object):
             renameDestinationFile: (str): You could rename the destination file.
             includeTimestamp: (bool):  If False, each time you copy the same file will be overwritten.
         """
-        import datetime
-
         self.ixnObj.logInfo('\ncopyFileWindowsToRemoteWindows: From: %s to %s\n' % (windowsPathAndFileName, localPath))
-        windowsPathAndFileName = windowsPathAndFileName.replace('\\', '\\\\')
         fileName = windowsPathAndFileName.split('\\')[-1]
         fileName = fileName.replace(' ', '_')
-        # Default location: "C:\\Users\\<user name>\\AppData\\Local\\sdmStreamManager\\common"
-        destinationPath = '{0}/ixnetwork/files/'.format(self.ixnObj.headlessSessionId) + fileName
-        currentTimestamp = datetime.datetime.now().strftime('%H%M%S')
 
-        # Step 1 of 2:
-        response = self.ixnObj.post(self.ixnObj.sessionUrl+'/operations/copyfile',
-                             data={"arg1": windowsPathAndFileName, "arg2": destinationPath})
+        if renameDestinationFile:
+            fileName = renameDestinationFile
 
-        # curl http://{apiServerIp:port}/api/v1/sessions/1/ixnetwork/files/AggregateResults.csv -O -H "Content-Type: application/octet-stream" -output /home/hgee/AggregateResults.csv
+        if includeTimestamp:
+            fileName = self._addTimestampToFile(fileName)
 
-        # Step 2 of 2:
-        requestStatus = self.ixnObj.get(self.ixnObj.sessionUrl+'/files/%s' % (fileName), stream=True, ignoreError=True)
-        if requestStatus.status_code == 200:
-            if renameDestinationFile is not None:
-                fileName = renameDestinationFile
+        destinationPath = localPath + '\\' + fileName
 
-            contents = requestStatus.raw.read()
-
-            if includeTimestamp:
-                tempFileName = fileName.split('.')
-                if len(tempFileName) > 1:
-                    extension = fileName.split('.')[-1]
-                    fileName = tempFileName[0]+'_' + currentTimestamp + '.' + extension
-                else:
-                    fileName = tempFileName[0]+'_' + currentTimestamp
-
-                localPath = localPath+'/'+fileName
-            else:
-                localPath = localPath+'/'+fileName
-
-            with open(localPath, 'wb') as downloadedFileContents:
-                downloadedFileContents.write(contents)
-
-            response = self.ixnObj.get(self.ixnObj.sessionUrl+'/files')
-
-            self.ixnObj.logInfo('\nA copy of your saved file/report is in:\n\t%s' % (windowsPathAndFileName))
-            self.ixnObj.logInfo('\ncopyFileWindowsToLocalLinux: %s' % localPath)
-        else:
-            self.ixnObj.logInfo('\ncopyFileWindowsToLocalLinux Error: Failed to download file from IxNetwork API Server.')
+        try:
+            self.ixNetwork.CopyFile(windowsPathAndFileName, destinationPath)
+        except :
+            raise Exception ("Copy File from {} to {} Failed".format(windowsPathAndFileName, destinationPath))
 
     def copyFileWindowsToLocalLinux(self, windowsPathAndFileName, localPath, renameDestinationFile=None, includeTimestamp=False):
         """
@@ -162,49 +94,24 @@ class FileMgmt(object):
             post: /api/v1/sessions/1/ixnetwork/operations/copyfile
             data: {'arg1': windowsPathAndFileName, 'arg2': '/api/v1/sessions/1/ixnetwork/files/'+fileName'}
         """
-        import datetime
 
         self.ixnObj.logInfo('\ncopyFileWindowsToLocalLinux: From: %s to %s\n' % (windowsPathAndFileName, localPath))
         fileName = windowsPathAndFileName.split('\\')[-1]
         fileName = fileName.replace(' ', '_')
-        destinationPath = '{0}/ixnetwork/files/'.format(self.ixnObj.headlessSessionId) + fileName
-        currentTimestamp = datetime.datetime.now().strftime('%H%M%S')
 
-        # Step 1 of 2:
-        url = self.ixnObj.sessionUrl+'/operations/copyfile'
-        response = self.ixnObj.post(url,
-                             data={"arg1": windowsPathAndFileName, "arg2": destinationPath})
+        if renameDestinationFile:
+            fileName = renameDestinationFile
 
-        # curl http://{apiServerIp:port}/api/v1/sessions/1/ixnetwork/files/AggregateResults.csv -O -H "Content-Type: application/octet-stream" -output /home/hgee/AggregateResults.csv
+        if includeTimestamp:
+            fileName = self._addTimestampToFile(fileName)
 
-        # Step 2 of 2:
-        #requestStatus = self.ixnObj.get(self.ixnObj.sessionUrl+'/files/%s' % (fileName), stream=True, ignoreError=True)
-        url = self.ixnObj.sessionUrl+'/files?filename=%s' % (fileName)
-        requestStatus = self.ixnObj.get(url, stream=True, ignoreError=True)
-        if requestStatus.status_code == 200:
-            if renameDestinationFile is not None:
-                fileName = renameDestinationFile
+        destinationPath = localPath + '/' + fileName
 
-            contents = requestStatus.raw.read()
-            if includeTimestamp:
-                tempFileName = fileName.split('.')
-                if len(tempFileName) > 1:
-                    extension = fileName.split('.')[-1]
-                    fileName = tempFileName[0]+'_' + currentTimestamp + '.' + extension
-                else:
-                    fileName = tempFileName[0]+'_' + currentTimestamp
+        try:
+            self.ixNetwork.CopyFile(windowsPathAndFileName, destinationPath)
+        except :
+            raise Exception ("\ncopyFileWindowsToLocalLinux Error: Failed to download file from IxNetwork API Server ")
 
-                localPath = localPath+'/'+fileName
-            else:
-                localPath = localPath+'/'+fileName
-
-            with open(localPath, 'wb') as downloadedFileContents:
-                downloadedFileContents.write(contents)
-
-            self.ixnObj.logInfo('\nA copy of your saved file/report is in:\n\t%s' % (windowsPathAndFileName))
-            self.ixnObj.logInfo('\ncopyFileWindowsToLocalLinux: %s' % localPath)
-        else:
-            self.ixnObj.logInfo('\ncopyFileWindowsToLocalLinux Error: Failed to download file from IxNetwork API Server.')
 
     def copyFileWindowsToLocalWindows(self, windowsPathAndFileName, localPath, renameDestinationFile=None, includeTimestamp=False):
         """
@@ -223,27 +130,36 @@ class FileMgmt(object):
            WindowsPathAndFileName =  'C:\\Users\\hgee\\AppData\\Local\\Ixia\\IxNetwork\\data\\result\\DP.Rfc2544Tput\\9e1a1f04-fca5-42a8-b3f3-74e5d165e68c\\Run0001\\TestReport.pdf'
            localPath = 'C:\\Results'
         """
-        import datetime
-
-        self.ixnObj.logInfo('\ncopyFileWindowsToLocalWindows: From: %s to %s\n' % (windowsPathAndFileName, localPath))
-        self.ixnObj.logInfo('\nYou need to manually remove the saved copy in: %s' % windowsPathAndFileName)
+        self.ixnObj.logInfo('\n\ncopyFileWindowsToLocalWindows: From: %s to %s\n\n' % (windowsPathAndFileName, localPath))
         fileName = windowsPathAndFileName.split('\\')[-1]
+        fileName = fileName.replace(' ', '_')
         if renameDestinationFile:
             fileName = renameDestinationFile
 
-        fileName = fileName.replace(' ', '_')
         if includeTimestamp:
-            currentTimestamp = datetime.datetime.now().strftime('%H%M%S')
-            tempFileName = fileName.split('.')
-            if len(tempFileName) > 1:
-                extension = fileName.split('.')[-1]
-                fileName = tempFileName[0]+'_' + currentTimestamp + '.' + extension
-            else:
-                fileName = tempFileName[0]+'_' + currentTimestamp
+            fileName = self._addTimestampToFile(fileName)
 
-        destinationPath = localPath+'\\'+fileName
-        response = self.ixnObj.post(self.ixnObj.sessionUrl+'/operations/copyfile',
-                             data={"arg1": windowsPathAndFileName, "arg2": destinationPath})
+        destinationPath = localPath + '\\' + fileName
+        self.ixnObj.logInfo('\nCopying from {} -> {}'.format(windowsPathAndFileName, destinationPath))
+        self.ixNetwork.CopyFile(windowsPathAndFileName, destinationPath)
+
+    def _addTimestampToFile(self,filename):
+        """
+        Function used internally by API rfc2544_quicktest
+
+        :param filename: filename for which timestamp to be added
+        """
+        currentTimestamp = datetime.datetime.now().strftime('%H%M%S')
+        if '\\' in filename:
+            filename = filename.split('\\')[-1]
+
+        if '/' in filename:
+            filename = filename.split('/')[-1]
+
+        newFilename = filename.split('.')[0]
+        newFileExtension = filename.split('.')[1]
+        newFileWithTimestamp = '{}_{}.{}'.format(newFilename, currentTimestamp, newFileExtension)
+        return newFileWithTimestamp
 
     def copyFileLinuxToLocalLinux(self, linuxApiServerPathAndFileName, localPath, renameDestinationFile=None,
                                   includeTimestamp=False, linuxApiServerPathExtension=None):
@@ -257,9 +173,7 @@ class FileMgmt(object):
 
         Parameters
             linuxApiServerPathAndFileName: (str): The full path and filename to retrieve.
-            linuxApiServerPathExtension: (str): In a situation such as packet capture for Linux API server only, the 
-                                                captured file is saved at 'captures/<temp folder>/file.
-                                                Value example: 'captures/packetCaptureFolder/port2_HW.cap'
+            linuxApiServerPathExtension: (str): Not using in Resrpy
                                                 
             localPath: (str): The Linux destination path to put the file to.
             renameDestinationFile: (str): You could rename the destination file.
@@ -270,61 +184,24 @@ class FileMgmt(object):
             data: {'arg1': '/root/.local/share/Ixia/sdmStreamManager/common/bgpExportedConfigFile',
                    'arg2': '/api/v1/sessions/1/ixnetwork/files/'+fileName'}
         """
-        import datetime
 
         self.ixnObj.logInfo('\ncopyFileLinuxToLocalLinux: From: %s to %s\n' % (linuxApiServerPathAndFileName, localPath))
 
         fileName = linuxApiServerPathAndFileName.split('/')[-1]
         fileName = fileName.replace(' ', '_')
-         
-        destinationPath = self.ixnObj.sessionUrl.split(self.ixnObj.httpHeader)[1]
-        destinationPath = destinationPath + '/files/' + fileName
-        currentTimestamp = datetime.datetime.now().strftime('%H%M%S')
 
-        # Step 1 of 3:
-        url = self.ixnObj.sessionUrl+'/operations/copyfile'
-        response = self.ixnObj.post(url, data={"arg1": linuxApiServerPathAndFileName, "arg2": destinationPath})
+        if renameDestinationFile:
+            fileName = renameDestinationFile
 
-        # Step 2 of 3:
-        if linuxApiServerPathExtension:
-            # Situations like packet capturing puts the captured file in 'captures/<temp folder>/'
-            fileName = linuxApiServerPathExtension
+        if includeTimestamp:
+            fileName = self._addTimestampToFile(fileName)
 
-        response = self.ixnObj.get(self.ixnObj.sessionUrl+'/files?filename=%s' % (fileName), stream=True, ignoreError=True)
+        destinationPath = localPath + '/' + fileName
 
-        if response.status_code == 200:
-            if renameDestinationFile is not None:
-                fileName = renameDestinationFile
-
-            if linuxApiServerPathExtension:
-                # This extension means that it has an extended path: captures/<temp folder>/fileToGet
-                fileName = linuxApiServerPathExtension.split('/')[-1]
-
-            contents = response.raw.read()
-
-            if includeTimestamp:
-                if linuxApiServerPathAndFileNameAsIs:
-                    fileName = fileName.split('/')[-1]
-
-                tempFileName = fileName.split('.')
-                if len(tempFileName) > 1:
-                    extension = fileName.split('.')[-1]
-                    fileName = tempFileName[0]+'_' + currentTimestamp + '.' + extension
-                else:
-                    fileName = tempFileName[0]+'_' + currentTimestamp
-
-                localPath = localPath+'/'+fileName
-            else:
-                localPath = localPath+'/'+fileName
-
-            # Step 3 of 3:
-            self.ixnObj.logInfo('\ncopyFileLinuxToLocalLinux: %s' % localPath)
-            with open(localPath, 'wb') as downloadedFileContents:
-                downloadedFileContents.write(contents)
-
-            self.ixnObj.logInfo('\nA copy of your saved file/report is in:\n\t%s' % (linuxApiServerPathAndFileName))
-        else:
-            self.ixnObj.logInfo('\ncopyFileLinuxToLocalLinux Error: Failed to download file from Linux API Server.')
+        try:
+            self.ixNetwork.CopyFile(linuxApiServerPathAndFileName, destinationPath)
+        except :
+            raise Exception ("\ncopyFileLinuxToLocalLinux Error: Failed to download file from IxNetwork API Server ")
 
     def convertIxncfgToJson(self, ixncfgFile, destinationPath):
         """
@@ -338,14 +215,18 @@ class FileMgmt(object):
             ixncfgFile: (str): The binary IxNetwork .ixncfg file.
             destinationPath: (str): The destination path to save the .json config file.
         """
+        self.ixnObj.logInfo("convertIxncfgToJson")
         self.loadConfigFile(ixncfgFile)
-        filename = ixncfgFile.split('/')[-1]
-        match = re.match('(.*).ixncfg', filename)
-        if  match:
-            filename = match.group(1)
+        filename = re.findall(r'[^\/|\\]+(?=\.)',ixncfgFile)[0]
 
-        jsonFilename = destinationPath+'/'+filename+'.json'
-        self.exportJsonConfigFile(jsonFilename)
+        if self.ixnObj.serverOs in ['windows', 'windowsConnectionMgr']:
+            jsonFilename = destinationPath + '\\' + filename + '.json'
+            destinationPath = jsonFilename.replace('\\', '\\\\')
+
+        if self.ixnObj.serverOs == 'linux':
+            destinationPath = destinationPath+'/'+filename + '.json'
+
+        self.exportJsonConfigFile(destinationPath)
 
     def importJsonConfigObj(self, dataObj, option='modify', silentMode=False, timeout=90):
         """
@@ -365,8 +246,8 @@ class FileMgmt(object):
         Parameters
             data: (json object): The JSON config object.
             option: (str): newConfig|modify
-            silentMode: (bool): If True, don't display REST API command on stdout.
-            timeout: (int): The timeout value to declare as failed.
+            silentMode: (bool): Not required in Restpy
+            timeout: (int): Not required in Restpy
 
         Note
             arg2 value must be a string of JSON data: '{"xpath": "/traffic/trafficItem[1]", "enabled": false}'
@@ -377,25 +258,10 @@ class FileMgmt(object):
         if option is 'newConfig':
             arg3 = True
 
-        dataReformatted = {"arg1": "{0}/ixnetwork/resourceManager".format(self.ixnObj.headlessSessionId),
-                           "arg2": json.dumps(dataObj),
-                           "arg3": arg3}
-
-        url = self.ixnObj.sessionUrl+'/resourceManager/operations/importconfig'
-        response = self.ixnObj.post(url, data=dataReformatted, silentMode=silentMode)
-        response = self.ixnObj.waitForComplete(response, url+'/'+response.json()['id'], silentMode=False, timeout=timeout)
-        if response.json()['result'] != []:
-            if option == 'modify':
-                errorFlag = 0
-                for errorMsg in response.json()['result']:
-                    self.ixnObj.logError('JSON Import: %s' % errorMsg, timestamp=False)
-                    errorFlag = 1
-
-                if errorFlag:
-                    raise IxNetRestApiException('\nimportJsonConfigObj Error')
-        else:
-            self.ixnObj.logInfo('importJsonConfigObj: No error in JSON import')
-
+        try :
+            self.ixNetwork.ResourceManager.ImportConfig(Arg2=json.dumps(dataObj) , Arg3 = arg3 )
+        except :
+            raise Exception ('\nimportJsonConfigObj Error')
 
     def importJsonConfigFile(self, jsonFileName, option='modify'):
         """
@@ -416,31 +282,11 @@ class FileMgmt(object):
         if option is 'newConfig':
             arg3 = True
 
-        fileName = jsonFileName.split('/')[-1]
-        uploadFile = self.ixnObj.sessionUrl+'/files?filename='+fileName
-
-        if self.ixnObj.serverOs == 'linux':
-            headers = {'content-type': 'application/octet-stream', 'x-api-key': self.ixnObj.apiKey}
-        else:
-            headers = {'content-type': 'application/octet-stream'}
-
-        # 1> Upload the config file to the server and give it any name you want for the filename
-        self.ixnObj.logInfo('Uploading file to server: %s' % uploadFile)
-        with open(jsonFileName, mode='rb') as file:
-            configContents = file.read()
-            configContents = io.BytesIO(configContents)
-            response = self.ixnObj.post(uploadFile, data=configContents, noDataJsonDumps=True,
-                                        headers=headers, silentMode=False)
-
-        # 2> Tell IxNetwork to import the JSON config file
-        data = {"arg1": "{0}/ixnetwork/resourceManager".format(self.ixnObj.headlessSessionId),
-                "arg2": "{0}/ixnetwork/files/{1}".format(self.ixnObj.headlessSessionId, fileName),
-                "arg3": arg3}
-
-        url = self.ixnObj.sessionUrl+'/resourceManager/operations/importconfigfile'
-        response = self.ixnObj.post(url, data=data)
-        self.ixnObj.waitForComplete(response, url+'/'+response.json()['id'], silentMode=False, timeout=300)
-
+        try :
+            self.ixNetwork.ResourceManager.ImportConfigFile(Arg2=Files(jsonFileName) , Arg3 = arg3 )
+        except :
+            raise Exception ('\nimportJsonConfigObj Error')
+        
     def exportJsonConfigFile(self, jsonFileName, xpathList=None):
         """
         Description
@@ -476,55 +322,16 @@ class FileMgmt(object):
         if xpathList == None:
             xpathList = ['/descendant-or-self::*']
 
-        jsonFileNameTemp = jsonFileName.split('/')
-        if jsonFileNameTemp[0] == '':
-            jsonFileNameTemp.pop(0)
+        self.ixnObj.logInfo('Storing the exported file to: %s' % jsonFileName)
 
-        if len(jsonFileNameTemp) > 1:
-            destinationPath = '/'
-            destinationPath = destinationPath + '/'.join(jsonFileNameTemp[:-1])
-        else:
-            destinationPath = os.getcwd()
+        try :
+            ret = self.ixNetwork.ResourceManager.ExportConfig(Arg2=xpathList, Arg3=True, Arg4= 'json')
+            convStrToDict=json.loads(ret)
+            with open(jsonFileName,'w') as fp :
+                json.dump(convStrToDict,fp)
+        except :
+            raise Exception("Failed Exporting Configuration")
 
-        self.ixnObj.logInfo('Storing the exported file to: %s' % destinationPath)
-
-        fileName = jsonFileNameTemp[-1]
-        # sessionId example: /api/v1/sessions/{id}/ixnetwork
-        sessionId = self.ixnObj.sessionUrl.split(self.ixnObj.httpHeader)[1]
-
-        data = {'arg1': sessionId+"/resourceManager",
-                'arg2': xpathList,
-                'arg3': True,
-                'arg4': 'json',
-                'arg5': sessionId+'/files/'+fileName
-        }
-
-        url = self.ixnObj.sessionUrl+'/resourceManager/operations/exportconfigfile'
-        response = self.ixnObj.post(url, data=data)
-        self.ixnObj.waitForComplete(response, url+'/'+response.json()['id'], silentMode=False)
-
-        response = self.ixnObj.get(self.ixnObj.sessionUrl+'/files')
-        absolutePath = response.json()['absolute']
-
-        if self.ixnObj.serverOs in ['windows', 'windowsConnectionMgr']:
-            absolutePath = absolutePath.replace('\\', '\\\\')
-            absolutePath = absolutePath + '\\\\'+fileName
-
-        if self.ixnObj.serverOs == 'linux':
-            absolutePath = absolutePath+'/'+fileName
-
-        if self.ixnObj.serverOs in ['windows', 'windowsConnectionMgr']:
-            self.copyFileWindowsToLocalLinux(windowsPathAndFileName=absolutePath,
-                                             localPath=destinationPath,
-                                             renameDestinationFile=None,
-                                             includeTimestamp=False)
-
-        if self.ixnObj.serverOs == 'linux':
-            self.copyFileLinuxToLocalLinux(linuxApiServerPathAndFileName=absolutePath,
-                                           localPath=destinationPath,
-                                           renameDestinationFile=None,
-                                           includeTimestamp=False)
-            
         # Indent the serialized json config file
         jsonObj = self.jsonReadConfig(jsonFileName)
         self.jsonWriteToFile(jsonObj, jsonFileName)
@@ -544,16 +351,11 @@ class FileMgmt(object):
         """
         if xpathList == None:
             xpathList = ['/descendant-or-self::*']
-        
-        data = {'arg1': self.ixnObj.apiSessionId+"/resourceManager",
-                'arg2': xpathList,
-                'arg3': True,
-                'arg4': 'json'
-        }
-        url = self.ixnObj.sessionUrl+'/resourceManager/operations/exportconfig'
-        response = self.ixnObj.post(url, data=data)
-        response = self.ixnObj.waitForComplete(response, url+'/'+response.json()['id'], silentMode=False)
-        return json.loads(response.json()['result'])
+        try :
+            ret = self.ixNetwork.ResourceManager.ExportConfig(Arg2=xpathList, Arg3=True, Arg4= 'json')
+            return (json.loads(ret))
+        except :
+            raise Exception("Failed Exporting Configuration")
 
     def getJsonConfigPortList(self, jsonData):
         """
@@ -617,19 +419,14 @@ class FileMgmt(object):
            diagZipFileName: <str>: The diagnostic filename to name with .zip extension.
            localPath: <str>: The local destination where you want to put the collected diag file.
         """
-        if localPath is None:
-            localPath = '.'
 
-        url = self.ixnObj.sessionUrl+'/operations/collectlogs'
-        data = {'arg1': self.ixnObj.headlessSessionId+'/'+diagZipFilename}
-        response = self.ixnObj.post(url, data=data)
-        self.ixnObj.waitForComplete(response, url+'/'+response.json()['id'], silentMode=False, timeout=900)
-        response = self.ixnObj.get(self.ixnObj.sessionUrl+'/files')
-        absolutePath = response.json()['absolute']
+        try:
+            self.ixNetwork.CollectLogs(Arg1=Files(diagZipFilename, local_file=True))
+        except :
+            raise Exception("Failed Creating Diag logs")
 
-        if self.ixnObj.serverOs in ['windows', 'windowsConnectionMgr']:
-            absolutePath = absolutePath.replace('/', '\\')
-            self.copyFileWindowsToLocalLinux(windowsPathAndFileName=absolutePath+'\\'+diagZipFilename, localPath=localPath)
-
-        if self.ixnObj.serverOs == 'linux':
-            self.copyFileLinuxToLocalLinux(linuxApiServerPathAndFileName=absolutePath+'/'+diagZipFilename, localPath=localPath)
+        if localPath :
+            try :
+                self.ixNetwork.CopyFile(Files(diagZipFilename, local_file=True), localPath + "\\" + diagZipFilename )
+            except :
+                self.ixNetwork.CopyFile(Files(diagZipFilename, local_file=True), localPath + "/" + diagZipFilename)
