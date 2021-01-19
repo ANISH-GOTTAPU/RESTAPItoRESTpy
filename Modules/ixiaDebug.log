@@ -1,0 +1,14 @@
+2020-12-17 10:47:22 [ixnetwork_restpy.connection] [INFO] using python version 3.6.4 (v3.6.4:d48eceb, Dec 19 2017, 06:04:45) [MSC v.1900 32 bit (Intel)]
+2020-12-17 10:47:22 [ixnetwork_restpy.connection] [INFO] using ixnetwork-restpy version 1.0.55
+2020-12-17 10:47:22 [ixnetwork_restpy.connection] [WARNING] Verification of certificates is disabled
+2020-12-17 10:47:22 [ixnetwork_restpy.connection] [INFO] Determining the platform and rest_port using the 10.39.70.140 address...
+2020-12-17 10:47:23 [ixnetwork_restpy.connection] [WARNING] Unable to connect to http://10.39.70.140:443.
+2020-12-17 10:47:24 [ixnetwork_restpy.connection] [INFO] Connection established to `https://10.39.70.140:443 on linux`
+2020-12-17 10:48:15 [ixnetwork_restpy.connection] [WARNING] Verification of certificates is disabled
+2020-12-17 10:48:15 [ixnetwork_restpy.connection] [INFO] Determining the platform and rest_port using the 10.39.70.140 address...
+2020-12-17 10:48:15 [ixnetwork_restpy.connection] [WARNING] Unable to connect to http://10.39.70.140:443.
+2020-12-17 10:48:16 [ixnetwork_restpy.connection] [INFO] Connection established to `https://10.39.70.140:443 on linux`
+2020-12-17 10:49:21 [ixnetwork_restpy.connection] [WARNING] Verification of certificates is disabled
+2020-12-17 10:49:21 [ixnetwork_restpy.connection] [INFO] Determining the platform and rest_port using the 10.39.70.140 address...
+2020-12-17 10:49:24 [ixnetwork_restpy.connection] [WARNING] Unable to connect to http://10.39.70.140:443.
+2020-12-17 10:49:25 [ixnetwork_restpy.connection] [INFO] Connection established to `https://10.39.70.140:443 on linux`
