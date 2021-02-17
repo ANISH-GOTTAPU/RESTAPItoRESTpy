@@ -241,7 +241,7 @@ class Traffic(object):
                 for item, value in trafficItem.item():
                     if item != 'trackBy':
                         itemObj = item[0:1].capitalize() + item[1:]
-                        eval("trafficItemObj." + "update(" + itemObj + " =  trafficItem[item])")
+                        setattr(trafficItemObj, itemObj, trafficItem[item])
                     else:
                         trafficItemObj.Tracking.find().Values = trafficItem['trackBy']
 
@@ -331,8 +331,7 @@ class Traffic(object):
                         'interBurstGap', 'interStreamGap', 'iterationCount', 'minGapBytes',
                         'repeatBurst', 'startDelay']:
                 itemObj = item[0:1].capitalize() + item[1:]
-                eval("configElementObj.TransmissionControl.\
-                    update(" + itemObj + "=" + str(configElements[item]) + ")")
+                setattr(configElementObj.TransmissionControl, itemObj, str(configElements[item]))
 
             if item == 'frameRateType':
                 configElementObj.FrameRate.Type = str(configElements[item])

@@ -1032,7 +1032,7 @@ class Protocol(object):
         for key, value in kwargs.items():
             if key in mplsAttributes:
                 key = key[0].capitalize() + key[1:]
-                multivalueObj = eval("mplsObj.find()." + key)
+                multivalueObj = getattr(mplsObj, key)
                 if type(value) == dict:
                     self.configMultivalue(multivalueObj, 'counter', value)
                 else:
@@ -1101,7 +1101,7 @@ class Protocol(object):
 
         for key, value in kwargs.items():
             itemObj = key[0:1].capitalize() + key[1:]
-            multivalueObj = eval("vxlanId.find()." + itemObj)
+            multivalueObj = getattr(vxlanId, itemObj)
             try:
                 if type(value) == dict:
                     self.configMultivalue(multivalueObj, 'counter', value)
@@ -1409,7 +1409,7 @@ class Protocol(object):
             self.ixnObj.logInfo('Configuring PrefixPools {0} Route Property multivalue attribute: '
                                 '{1}'.format(protocolRouteRange, attribute))
             try:
-                multivalue = eval("protocolRouteRangeObj." + attribute)
+                multivalue = getattr(protocolRouteRangeObj, attribute)
                 if type(value) == dict:
                     if 'direction' in value:
                         self.configMultivalue(multivalue, 'counter', data=value)
