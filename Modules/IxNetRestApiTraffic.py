@@ -181,116 +181,128 @@ class Traffic(object):
         if mode is None:
             raise IxNetRestApiException('configTrafficItem Error: Must include mode: config or '
                                         'modify')
-
+        isHighLevelStreamTrue = False
         if mode == 'create' and trafficItem is not None:
             trafficItemObj = self.ixNetwork.Traffic.TrafficItem.add()
+            if 'trackBy' in trafficItem:
+                trackBy = trafficItem['trackBy']
+                del trafficItem['trackBy']
 
             for item, value in trafficItem.items():
-                if item != 'trackBy':
-                    itemObj = item[0:1].capitalize() + item[1:]
-                    setattr(trafficItemObj, itemObj, value)
+                itemObj = item[0:1].capitalize() + item[1:]
+                setattr(trafficItemObj, itemObj, value)
+
+        if mode == 'create' and endpoints is not None:
+            if type(endpoints) != list:
+                raise IxNetRestApiException('configTrafficItem error: Provide endpoints in a list')
+            endpointSetObjList = []
+
+            for endPoint in endpoints:
+                if 'scalableSources' in endPoint:
+                    for each in endPoint['scalableSources']:
+                        each['arg1'] = each['arg1'].href
+                if 'scalableDestinations' in endPoint:
+                    for each in endPoint['scalableDestinations']:
+                        each['arg1'] = each['arg1'].href
+
+                endPointSetObj = trafficItemObj.EndpointSet.add(
+                    Name=endPoint.get('name', None),
+                    Sources=endPoint.get('sources', None),
+                    Destinations=endPoint.get('destinations', None),
+                    ScalableSources=endPoint.get('scalableSources', None),
+                    ScalableDestinations=endPoint.get('scalableDestinations', None),
+                    MulticastDestinations=endPoint.get('multicastDestinations', None),
+                    MulticastReceivers=endPoint.get('multicastReceivers', None)
+                )
+                endpointSetObjList.append(endPointSetObj)
+                if 'highLevelStreamElements' in endPoint:
+                    highLevelStream = endPoint['highLevelStreamElements']
+                    # JSON doesn't support None.  In case user passed in {} instead of None.
+                    if highLevelStream == {}:
+                        highLevelStream = None
                 else:
-                    trafficItemObj.Tracking.find().TrackBy = value
+                    highLevelStream = None
+                if highLevelStream is not None:
+                    isHighLevelStreamTrue = True
+                    configElementObjList = None
+                    for eachHighLevelStream in highLevelStream:
+                        self.configConfigElements(trafficItemObj.HighLevelStream.find(), eachHighLevelStream)
+                        pass
 
-            if endpoints is not None and trafficItemObj is not None:
-                for endPoint in endpoints:
-                    endPointSetObj = trafficItemObj.EndpointSet.add(
-                        Name=endPoint['name'],
-                        Sources=endPoint['sources'],
-                        Destinations=endPoint['destinations']
-                    )
+        # if configElements != "" and trafficItemObj is not None:
+        #     configElementObj = trafficItemObj.ConfigElement.find()
+        #
+        # for configEle in configElements:
+        #     if 'transmissionType' in configEle:
+        #         configElementObj.TransmissionControl.Type = configEle['transmissionType']
+        #         del configEle['transmissionType']
+        #
+        #     if 'frameCount' in configEle:
+        #         configElementObj.TransmissionControl.FrameCount = configEle['frameCount']
+        #         del configEle['frameCount']
+        #
+        #     if 'frameRate' in configEle:
+        #         configElementObj.FrameRate.Rate = configEle['frameRate']
+        #         del configEle['frameRate']
+        #
+        #     if 'frameRateType' in configEle:
+        #         configElementObj.FrameRate.Type = configEle['frameRateType']
+        #         del configEle['frameRateType']
+        #
+        #     if 'frameSize' in configEle:
+        #         configElementObj.FrameSize.FixedSize = configEle['frameSize']
+        #         del configEle['frameSize']
+        #
+        #     if 'portDistribution' in configEle:
+        #         configElementObj.FrameRateDistribution.PortDistribution \
+        #             = configEle['portDistribution']
+        #         del configEle['portDistribution']
+        #
+        #     if 'streamDistribution' in configEle:
+        #         configElementObj.FrameRateDistribution.StreamDistribution \
+        #             = configEle['streamDistribution']
+        #         del configEle['streamDistribution']
 
-            if configElements != "" and trafficItemObj is not None:
-                configElementObj = trafficItemObj.ConfigElement.find()
-
-            for configEle in configElements:
-                if 'transmissionType' in configEle:
-                    configElementObj.TransmissionControl.Type = configEle['transmissionType']
-                    del configEle['transmissionType']
-
-                if 'frameCount' in configEle:
-                    configElementObj.TransmissionControl.FrameCount = configEle['frameCount']
-                    del configEle['frameCount']
-
-                if 'frameRate' in configEle:
-                    configElementObj.FrameRate.Rate = configEle['frameRate']
-                    del configEle['frameRate']
-
-                if 'frameRateType' in configEle:
-                    configElementObj.FrameRate.Type = configEle['frameRateType']
-                    del configEle['frameRateType']
-
-                if 'frameSize' in configEle:
-                    configElementObj.FrameSize.FixedSize = configEle['frameSize']
-                    del configEle['frameSize']
-
-                if 'portDistribution' in configEle:
-                    configElementObj.FrameRateDistribution.PortDistribution \
-                        = configEle['portDistribution']
-                    del configEle['portDistribution']
-
-                if 'streamDistribution' in configEle:
-                    configElementObj.FrameRateDistribution.StreamDistribution \
-                        = configEle['streamDistribution']
-                    del configEle['streamDistribution']
-
-        elif mode == 'modify':
-            trafficItemObj = obj
+        if mode == 'modify':
 
             if trafficItem is not None:
-                for item, value in trafficItem.item():
-                    if item != 'trackBy':
-                        itemObj = item[0:1].capitalize() + item[1:]
-                        setattr(trafficItemObj, itemObj, trafficItem[item])
-                    else:
-                        trafficItemObj.Tracking.find().Values = trafficItem['trackBy']
+                trafficItemObj = obj
+                if 'trackBy' in trafficItem:
+                    trackBy = trafficItem['trackBy']
+                    del trafficItem['trackBy']
+                for item, value in trafficItem.items():
+                    itemObj = item[0:1].capitalize() + item[1:]
+                    setattr(trafficItemObj, itemObj, trafficItem[item])
 
-            endPointSetObj = trafficItemObj.EndpointSet.find()
-            if endpoints is not None and trafficItemObj is not None:
-                if 'name' in endpoints:
-                    endPointSetObj = trafficItemObj.EndpointSet.find(Name=endpoints['name'])
-                    endPointSetObj.Sources = endpoints['sources']
-                    endPointSetObj.Destinations = endpoints['destinations']
-                else:
-                    endPointSetObj = trafficItemObj.EndpointSet.add(
-                        Name=endpoints['name'],
-                        Sources=endpoints['sources'],
-                        Destinations=endpoints['destinations'])
-            configElementObj = trafficItemObj.ConfigElement.find()
-            if configElements is not None and trafficItemObj is not None:
-                configElementObj = trafficItemObj.ConfigElement.find()
+            if endpoints is not None:
+                endpointSetObj = obj
+                for key, value in endpoints.items():
+                    key = key[0:1].capitalize() + key[1:]
+                    setattr(endpointSetObj, key, value)
+        if isHighLevelStreamTrue == False and configElements is not None:
+            if mode == 'create' and type(configElements) != list:
+                raise IxNetRestApiException('configTrafficItem error: Provide configElements in a list')
+            if mode == 'modify':
+                configElementObj = obj
+                self.configConfigElements(configElementObj, configElements)
+            if mode == 'create':
+                endpointsObj = trafficItemObj.EndpointSet.find()
+                index = 0
+                configElementObjList = []
+                for eachEndpoint in endpointsObj:
+                    configElementObj = trafficItemObj.ConfigElement.find()
+                    configElementObjList.append(configElementObj)
+                    self.configConfigElements(configElementObj, configElements[index])
+                    if len(endpointSetObjList) == len(configElements):
+                        index += 1
+        if configElements is None:
+            configElementObjList = []
+        if mode in ['create', 'modify'] and 'trackBy' in locals():
+            trafficItemObj.Tracking.find().TrackBy = trackBy
+        if mode == 'create' and trafficItem != None:
+            return [trafficItemObj, endpointSetObjList, configElementObjList]
 
-                if 'transmissionType' in configElements:
-                    configElementObj.TransmissionControl.Type = configElements['transmissionType']
-                    del configElements['transmissionType']
-
-                if 'frameCount' in configElements:
-                    configElementObj.TransmissionControl.FrameCount = configElements['frameCount']
-                    del configElements['frameCount']
-
-                if 'frameRate' in configElements:
-                    configElementObj.FrameRate.Rate = configElements['frameRate']
-                    del configElements['frameRate']
-
-                if 'frameRateType' in configElements:
-                    configElementObj.FrameRate.Type = configElements['frameRateType']
-                    del configElements['frameRateType']
-
-                if 'frameSize' in configElements:
-                    configElementObj.FrameSize.FixedSize = configElements['frameSize']
-                    del configElements['frameSize']
-
-                if 'portDistribution' in configElements:
-                    configElementObj.FrameRateDistribution.PortDistribution \
-                        = configElements['portDistribution']
-                    del configElements['portDistribution']
-
-                if 'streamDistribution' in configElements:
-                    configElementObj.FrameRateDistribution.StreamDistribution \
-                        = configElements['streamDistribution']
-                    del configElements['streamDistribution']
-
-        return [trafficItemObj, endPointSetObj, configElementObj]
+        # return [trafficItemObj, endPointSetObj, configElementObj]
 
     def configConfigElements(self, configElementObj, configElements):
         """
@@ -913,22 +925,17 @@ class Traffic(object):
                                                                               int(offsetBit))
         trafficItemName = self.getTrafficItemName(trafficItemObj)
         self.ixnObj.logInfo('Creating new statview for egress stats...')
-        self.ixNetwork.Statistics.View.add(Caption=egressStatViewName,
-                                           TreeViewNodeName='Egress Custom Views',
-                                           Type='layer23TrafficFlow',
-                                           Visible=True)
-
+        self.ixNetwork.Statistics.View.add(Caption=egressStatViewName, TreeViewNodeName='Egress Custom Views',
+                                           Type='layer23TrafficFlow', Visible=True)
         self.ixnObj.logInfo('Creating layer23TrafficFlowFilter')
         egressStatViewObj = self.ixNetwork.Statistics.View.find(Caption=egressStatViewName)
         self.ixnObj.logInfo('egressStatView Object: %s' % egressStatViewObj.href)
         availablePortFilterObj = egressStatViewObj.AvailablePortFilter.find()
         portFilterId = []
         for eachPortFilterId in availablePortFilterObj:
-            self.ixnObj.logInfo('\tAvailable PortFilterId: %s' % eachPortFilterId.Name,
-                                timestamp=False)
+            self.ixnObj.logInfo('\tAvailable PortFilterId: %s' % eachPortFilterId.Name, timestamp=False)
             if eachPortFilterId.Name == egressTrackingPort:
-                self.ixnObj.logInfo('\tLocated egressTrackingPort: %s' % egressTrackingPort,
-                                    timestamp=False)
+                self.ixnObj.logInfo('\tLocated egressTrackingPort: %s' % egressTrackingPort, timestamp=False)
                 portFilterId.append(eachPortFilterId.href)
                 break
         if not portFilterId:
@@ -942,12 +949,10 @@ class Traffic(object):
                 break
         if not availableTrafficItemFilterId:
             raise IxNetRestApiException('No traffic item filter ID found.')
-        self.ixnObj.logInfo('availableTrafficItemFilterId: %s' % availableTrafficItemFilterId,
-                            timestamp=False)
+        self.ixnObj.logInfo('availableTrafficItemFilterId: %s' % availableTrafficItemFilterId, timestamp=False)
         self.ixnObj.logInfo('egressStatView: %s' % egressStatViewObj.href, timestamp=False)
         layer23TrafficFlowFilterObj = egressStatViewObj.Layer23TrafficFlowFilter.find()
-        self.ixnObj.logInfo('layer23TrafficFlowFilter: %s' % layer23TrafficFlowFilterObj,
-                            timestamp=False)
+        self.ixnObj.logInfo('layer23TrafficFlowFilter: %s' % layer23TrafficFlowFilterObj, timestamp=False)
         layer23TrafficFlowFilterObj.EgressLatencyBinDisplayOption = 'showEgressRows'
         layer23TrafficFlowFilterObj.TrafficItemFilterId = availableTrafficItemFilterId[0]
         layer23TrafficFlowFilterObj.PortFilterIds = portFilterId
@@ -955,14 +960,11 @@ class Traffic(object):
         egressTrackingFilter = None
         ingressTrackingFilter = None
         availableTrackingFilterObj = egressStatViewObj.AvailableTrackingFilter.find()
-        self.ixnObj.logInfo('Available tracking filters for both ingress and egress...',
-                            timestamp=False)
+        self.ixnObj.logInfo('Available tracking filters for both ingress and egress...', timestamp=False)
         for (index, eachTrackingFilter) in enumerate(availableTrackingFilterObj):
-            self.ixnObj.logInfo('\tFilter Name: {0}: {1}'.format(str(index + 1),
-                                                                 eachTrackingFilter.Name),
+            self.ixnObj.logInfo('\tFilter Name: {0}: {1}'.format(str(index + 1), eachTrackingFilter.Name),
                                 timestamp=False)
-            if bool(re.match('Custom: *\\([0-9]+ bits at offset [0-9]+\\)',
-                             eachTrackingFilter.Name)):
+            if bool(re.match('Custom: *\\([0-9]+ bits at offset [0-9]+\\)', eachTrackingFilter.Name)):
                 egressTrackingFilter = eachTrackingFilter.href
 
             if ingressTrackingFilterName is not None:
@@ -971,21 +973,18 @@ class Traffic(object):
         if egressTrackingFilter is None:
             raise IxNetRestApiException('Failed to locate your defined custom offsets: {0}'.
                                         format(egressTrackingOffsetFilter))
-        self.ixnObj.logInfo('Located egressTrackingFilter: %s' % egressTrackingFilter,
-                            timestamp=False)
+        self.ixnObj.logInfo('Located egressTrackingFilter: %s' % egressTrackingFilter, timestamp=False)
         layer23TrafficFlowFilterObj.EnumerationFilter.add(SortDirection='ascending',
                                                           TrackingFilterId=egressTrackingFilter)
         if ingressTrackingFilterName is not None:
-            self.ixnObj.logInfo('Located ingressTrackingFilter: %s' % ingressTrackingFilter,
-                                timestamp=False)
-            layer23TrafficFlowFilterObj.EnumerationFilter.add(
-                SortDirection='ascending', TrackingFilterId=ingressTrackingFilter)
+            self.ixnObj.logInfo('Located ingressTrackingFilter: %s' % ingressTrackingFilter, timestamp=False)
+            layer23TrafficFlowFilterObj.EnumerationFilter.add(SortDirection='ascending',
+                                                              TrackingFilterId=ingressTrackingFilter)
         statisticObj = egressStatViewObj.Statistic.find()
         for eachEgressStatCounter in statisticObj:
             eachStatCounterObject = eachEgressStatCounter
             eachStatCounterName = eachEgressStatCounter.Caption
-            self.ixnObj.logInfo('\tEnabling egress stat counter: %s' % eachStatCounterName,
-                                timestamp=False)
+            self.ixnObj.logInfo('\tEnabling egress stat counter: %s' % eachStatCounterName, timestamp=False)
             eachStatCounterObject.Enabled = True
         egressStatViewObj.Enabled = True
         self.ixnObj.logInfo('createEgressCustomStatView: Done')
@@ -1143,7 +1142,7 @@ class Traffic(object):
                 continue
 
             if counter <= timeout and currentTrafficState in expectedState:
-                time.sleep(8)
+                time.sleep(30)
                 return 0
 
         if ignoreException is False:

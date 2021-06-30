@@ -566,7 +566,7 @@ class Connect:
         # new session's license details.
 
         if licenseServer:
-            self.ixNetwork.Globals.Licensing.LicensingServers = [licenseServer]
+            self.ixNetwork.Globals.Licensing.LicensingServers = licenseServer
         if licenseMode:
             self.ixNetwork.Globals.Licensing.Mode = licenseMode
         if licenseTier:

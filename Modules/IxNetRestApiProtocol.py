@@ -102,8 +102,8 @@ class Protocol(object):
         """
         vportList = self.portMgmtObj.getVports(portList)
         if len(vportList) != len(portList):
-            raise IxNetRestApiException('createTopologyNgpf: There is not enough vports created '
-                                        'to match the number of ports.')
+            raise IxNetRestApiException('createTopologyNgpf: There is not enough vports created to match the number '
+                                        'of ports.')
 
         topologyObj = self.ixNetwork.Topology.add(Name=topologyName, Vports=vportList)
         return topologyObj
@@ -158,8 +158,8 @@ class Protocol(object):
            This API is for backward compatiblility.
            Use self.configEthernetNgpf()
         """
-        ethernetObj = self.configEthernetNgpf(obj=obj, port=port, portName=portName,
-                                              ngpfEndpointName=ngpfEndpointName, **kwargs)
+        ethernetObj = self.configEthernetNgpf(obj=obj, port=port, portName=portName, ngpfEndpointName=ngpfEndpointName,
+                                              **kwargs)
         return ethernetObj
 
     def configEthernetNgpf(self, obj=None, port=None, portName=None, ngpfEndpointName=None,
@@ -211,8 +211,7 @@ class Protocol(object):
 
             # To modify
             if ngpfEndpointName:
-                ethObj = self.getNgpfObjectHandleByName(ngpfEndpointName=ngpfEndpointName,
-                                                        ngpfEndpointObject='ethernet')
+                ethObj = self.getNgpfObjectHandleByName(ngpfEndpointName=ngpfEndpointName, ngpfEndpointObject='ethernet')
 
             # To modify
             if port:
@@ -228,6 +227,9 @@ class Protocol(object):
                 ethObj = obj
             else:
                 ethObj = obj.Ethernet.add()
+            keys = [k for k, v in kwargs.items() if not v]
+            for k in keys:
+                del kwargs[k]
 
             if 'ethernetName' in kwargs:
                 kwargs['name'] = kwargs['ethernetName']
@@ -256,7 +258,10 @@ class Protocol(object):
                 enableVlanObj.Single(True)
 
                 vlanValues = kwargs['vlanId']
-                self.configMultivalue(vlanObj, 'counter', vlanValues)
+                if type(vlanValues) == dict:
+                    self.configMultivalue(vlanObj, 'counter', vlanValues)
+                else:
+                    self.configMultivalue(vlanObj, 'singlevalue', {'value': vlanValues})
                 del kwargs['vlanId']
 
             if 'vlanPriority' in kwargs:
@@ -276,11 +281,8 @@ class Protocol(object):
                     else:
                         self.configMultivalue(multivalueObj, 'singlevalue', {'value': value})
                 except Exception as e:
-                    print(e)
                     setattr(ethObj, key, value)
 
-            if ethObj not in self.configuredProtocols:
-                self.configuredProtocols.append(ethObj)
             return ethObj
 
     def configIsIsL3Ngpf(self, obj, **data):
@@ -303,7 +305,6 @@ class Protocol(object):
 
         for key, value in data.items():
             key = key[0:1].capitalize() + key[1:]
-            print("checking for key", key)
             try:
                 multivalueObj = getattr(isisObj, key)
                 if type(value) == dict:
@@ -311,7 +312,6 @@ class Protocol(object):
                 else:
                     self.configMultivalue(multivalueObj, 'singlevalue', {'value': value})
             except Exception as e:
-                print(e)
                 setattr(isisObj, key, value)
 
         if isisObj not in self.configuredProtocols:
@@ -341,7 +341,6 @@ class Protocol(object):
 
         for key, value in data.items():
             key = key[0:1].capitalize() + key[1:]
-            print("checking for key", key)
             try:
                 multivalueObj = getattr(isisL3RouterObj, key)
                 if type(value) == dict:
@@ -349,7 +348,6 @@ class Protocol(object):
                 else:
                     self.configMultivalue(multivalueObj, 'singlevalue', {'value': value})
             except Exception as e:
-                print(e)
                 setattr(isisL3RouterObj, key, value)
 
     def configIsIsBierSubDomainListNgpf(self, isisL3RouterObj, **data):
@@ -362,10 +360,13 @@ class Protocol(object):
         isisBierSubDomainListObj = isisL3RouterObj.IsisBierSubDomainList
         for key, value in data.items():
             key = key[0:1].capitalize() + key[1:]
+            multivalueObj = getattr(isisBierSubDomainListObj, key)
             try:
-                self.configMultivalue(isisBierSubDomainListObj, 'singlevalue', {'value': value})
+                if type(value) == dict:
+                    self.configMultivalue(multivalueObj, 'counter', value)
+                else:
+                    self.configMultivalue(multivalueObj, 'singlevalue', {'value': value})
             except Exception as e:
-                print(e)
                 setattr(isisBierSubDomainListObj, key, value)
 
     def createIpv4Ngpf(self, obj=None, port=None, portName=None, ngpfEndpointName=None, **kwargs):
@@ -489,7 +490,6 @@ class Protocol(object):
                 else:
                     self.configMultivalue(multivalueObj, 'singlevalue', {'value': value})
             except Exception as e:
-                print(e)
                 setattr(ipv4Obj, key, value)
 
         if ipv4Obj not in self.configuredProtocols:
@@ -586,6 +586,9 @@ class Protocol(object):
         if 'name' in kwargs:
             dhcpObj.Name = kwargs['name']
 
+        if 'multiplier' in kwargs:
+            del kwargs['multiplier']
+
         for key, value in kwargs.items():
             key = key[0:1].capitalize() + key[1:]
             multivalueObj = getattr(dhcpObj, key)
@@ -594,9 +597,7 @@ class Protocol(object):
                     self.configMultivalue(multivalueObj, 'counter', value)
                 else:
                     self.configMultivalue(multivalueObj, 'singleValue', {'value': value})
-                    multivalueObj.Single(value)
             except Exception as e:
-                print(e)
                 setattr(dhcpObj, key, value)
 
         if dhcpObj not in self.configuredProtocols:
@@ -657,7 +658,6 @@ class Protocol(object):
                     else:
                         self.configMultivalue(multivalueObj, 'singleValue', {'value': value})
                 except Exception as e:
-                    print(e)
                     setattr(dhcpObj, key, value)
 
         if 'multiplier' in kwargs:
@@ -674,7 +674,6 @@ class Protocol(object):
                     else:
                         self.configMultivalue(multivalObj, 'singleValue', {'value': value})
                 except Exception as e:
-                    print(e)
                     setattr(dhcpServerSessionObj, key, value)
 
         if dhcpObj not in self.configuredProtocols:
@@ -747,7 +746,6 @@ class Protocol(object):
                         else:
                             self.configMultivalue(multivalueObj, 'singleValue', {'value': value})
                     except Exception as e:
-                        print(e)
                         setattr(ospfObj, itemObj, value)
 
             if 'lsaRefreshTime' in kwargs:
@@ -836,7 +834,6 @@ class Protocol(object):
                 if item not in ['lsaRefreshTime', 'lsaRetransmitTime',
                                 'interFloodLsUpdateBurstGap']:
                     itemObj = item[0].capitalize() + item[1:]
-                    print("checking for key", itemObj)
                     try:
                         multivalObj = getattr(ospfObj, itemObj)
                         if type(value) == dict:
@@ -844,7 +841,6 @@ class Protocol(object):
                         else:
                             self.configMultivalue(multivalObj, 'singleValue', {'value': value})
                     except Exception as e:
-                        print(e)
                         setattr(ospfObj, itemObj, value)
 
             if 'lsaRefreshTime' in kwargs:
@@ -951,7 +947,6 @@ class Protocol(object):
                 else:
                     self.configMultivalue(multivalue, 'singleValue', {'value': value})
             except Exception as e:
-                print(e)
                 setattr(bgpObj, key, value)
 
         if bgpObj not in self.configuredProtocols:
@@ -964,6 +959,9 @@ class Protocol(object):
         Creating a namespace for BgpIpv6Peer.  Pass everything to configBgp()
 
         """
+        if 'enableBgpIdSameasRouterId' in kwargs:
+            kwargs['enableBgpIdSameAsRouterId'] = kwargs['enableBgpIdSameasRouterId']
+            del kwargs['enableBgpIdSameasRouterId']
         return self.configBgp(obj, routerId, port, portName, ngpfEndpointName, hostIp, **kwargs)
 
     def configIgmpHost(self, ipObj, **kwargs):
@@ -1061,7 +1059,7 @@ class Protocol(object):
         vxlanId = None
         if obj is not None:
             if 'vxlan' not in obj:
-                vxlanId = obj.Ipv4.find().Vxlan.add()
+                vxlanId = obj.find().Vxlan.add()
 
             if 'vxlan' in obj:
                 vxlanId = obj
@@ -1099,6 +1097,10 @@ class Protocol(object):
             kwargs['ipv4_multicast'] = kwargs['vtepIpv4Multicast']
             del kwargs['vtepIpv4Multicast']
 
+        if 'vtepVni' in kwargs:
+            kwargs['vni'] = kwargs['vtepVni']
+            del kwargs['vtepVni']
+
         for key, value in kwargs.items():
             itemObj = key[0:1].capitalize() + key[1:]
             multivalueObj = getattr(vxlanId, itemObj)
@@ -1108,7 +1110,6 @@ class Protocol(object):
                 else:
                     self.configMultivalue(multivalueObj, 'singleValue', {'value': value})
             except Exception as e:
-                print(e)
                 setattr(vxlanId, itemObj, value)
 
         if vxlanId not in self.configuredProtocols:
@@ -1196,10 +1197,14 @@ class Protocol(object):
             networkGroupObj.Multiplier = kwargs['multiplier']
 
         if 'prefixLength' in kwargs:
-            if type(kwargs['prefixLength']) == 'int':
-                networkAddrObj.Single(kwargs['prefixLength'])
 
-        return networkGroupObj, prefixObj
+            prefixLengthObj = prefixObj.find().PrefixLength
+            if isinstance(kwargs['prefixLength'], int):
+                prefixLengthObj.Single(kwargs['prefixLength'])
+        if 'numberOfAddresses' in kwargs:
+            prefixObj.NumberOfAddresses = kwargs['numberOfAddresses']
+
+        return prefixObj
 
     def configNetworkGroupWithTopology(self, topoType='Linear', **kwargs):
         """
@@ -1376,14 +1381,22 @@ class Protocol(object):
                               redistribution,  routeOrigin, subDomainId
         """
         isisL3RoutePropObj = prefixPoolsObj.IsisL3RouteProperty.find()
+
         for attribute, value in data.items():
             attribute = attribute[0].capitalize() + attribute[1:]
             try:
                 multiValueObj = getattr(isisL3RoutePropObj, attribute)
-                self.ixnObj.configMultivalue(multiValueObj, 'singlevalue', {'value': value})
+                if type(value) == dict:
+                    self.configMultivalue(multiValueObj, 'counter', value)
+                else:
+                    self.configMultivalue(multiValueObj, 'singlevalue', {'value': value})
             except Exception as e:
-                print(e)
                 setattr(isisL3RoutePropObj, attribute, value)
+            # try:
+            #     multiValueObj = getattr(isisL3RoutePropObj, attribute)
+            #     self.ixnObj.configMultivalue(multiValueObj, 'singlevalue', {'value': value})
+            # except Exception as e:
+            #     setattr(isisL3RoutePropObj, attribute, value)
 
     def configPrefixPoolsRouteProperty(self, prefixPoolsObj, protocolRouteRange, **data):
         """
@@ -1509,9 +1522,9 @@ class Protocol(object):
         """
         buildNumber = float(self.ixnObj.getIxNetworkVersion()[:3])
         if buildNumber >= 8.5:
-            self.verifyProtocolSessionsUp2(protocolViewName, timeout)
+            self.verifyProtocolSessionsUp2()
         else:
-            self.verifyAllProtocolSessionsNgpf(timeout)
+            self.verifyAllProtocolSessionsNgpf()
 
     def verifyProtocolSessionsUp1(self, protocolViewName='BGP Peer Per Port', timeout=60):
         """
@@ -1807,8 +1820,22 @@ class Protocol(object):
 
         """
         timerStop = timeout
+        time.sleep(30)
         if protocolObjList is None:
-            protocolObjList = self.configuredProtocols
+            protocolObjList = []
+            configuredProtocolList = self.configuredProtocols
+            for vport in self.ixNetwork.Vport.find():
+                currentPort = vport.AssignedTo
+                chassisIp = currentPort.split(':')[0]
+                cardNum = currentPort.split(':')[1]
+                portNum = currentPort.split(':')[2]
+                port = [chassisIp, cardNum, portNum]
+                protocolList = self.getProtocolListByPortNgpf(port=port)
+                for eachProtocol in configuredProtocolList:
+                    protocol = eachProtocol.href.split("/")[-2]
+                    protocolObj = self.getProtocolObjFromProtocolList(protocolList=protocolList['deviceGroup'], protocol=protocol)[0]
+                    if protocolObj not in protocolObjList:
+                        protocolObjList.append(protocolObj)
 
         for eachProtocol in protocolObjList:
             # notStarted, up or down
@@ -1817,35 +1844,29 @@ class Protocol(object):
                 sessionStatus = self.getSessionStatus(eachProtocol)
                 protocolSessionStatus = eachProtocol.Status
 
-                self.ixnObj.logInfo('\nVerifyProtocolSessions: %s\n' % eachProtocol,
-                                    timestamp=False)
-                self.ixnObj.logInfo('\tprotocolSessionStatus: %s' % protocolSessionStatus,
-                                    timestamp=False)
+                self.ixnObj.logInfo('\nVerifyProtocolSessions: %s\n' % eachProtocol, timestamp=False)
+                self.ixnObj.logInfo('\tprotocolSessionStatus: %s' % protocolSessionStatus, timestamp=False)
                 self.ixnObj.logInfo('\tsessionStatusResponse: %s' % sessionStatus, timestamp=False)
                 if timer < timerStop:
                     if protocolSessionStatus != 'started':
-                        self.ixnObj.logInfo('\tWait %s/%s seconds' % (timer, timerStop),
-                                            timestamp=False)
+                        self.ixnObj.logInfo('\tWait %s/%s seconds' % (timer, timerStop), timestamp=False)
                         time.sleep(1)
                         continue
 
                     # Started
                     if 'up' not in sessionStatus:
-                        self.ixnObj.logInfo('\tProtocol session is down: Wait %s/%s seconds' % (
-                            timer, timerStop),
+                        self.ixnObj.logInfo('\tProtocol session is down: Wait %s/%s seconds' % (timer, timerStop),
                                             timestamp=False)
                         time.sleep(1)
                         continue
 
                     if 'up' in sessionStatus:
-                        self.ixnObj.logInfo('Protocol sessions are all up: {0}'.
-                                            format(protocolName))
+                        self.ixnObj.logInfo('Protocol sessions are all up: {0}'.format(protocolName))
                         break
-
                 if timer == timerStop:
                     if 'notStarted' in protocolSessionStatus:
-                        raise IxNetRestApiException('\tverifyProtocolSessions: {0} session failed'
-                                                    'to start'.format(protocolName))
+                        raise IxNetRestApiException('\tverifyProtocolSessions: {0} session failed to start'.
+                                                    format(protocolName))
 
                     if protocolSessionStatus == 'started' and 'down' in sessionStatus:
                         # Show ARP failures
@@ -1886,39 +1907,41 @@ class Protocol(object):
            purpose.
         """
         sessionDownList = ['down', 'notStarted']
+        if hasattr(protocol.find(), "Active"):
+            protocolActiveMultivalue = protocol.find().Active
+            response = self.getMultivalueValues(protocolActiveMultivalue)
+            self.ixnObj.logInfo('\t%s' % protocol, timestamp=False)
+            self.ixnObj.logInfo('\tProtocol is enabled: %s\n' % response[0], timestamp=False)
+            if response[0] == 'false':
+                return
 
-        protocolActiveMultivalue = protocol.Active
-        response = self.getMultivalueValues(protocolActiveMultivalue)
-        self.ixnObj.logInfo('\t%s' % protocol, timestamp=False)
-        self.ixnObj.logInfo('\tProtocol is enabled: %s\n' % response[0], timestamp=False)
-        if response[0] == 'false':
+            for timer in range(1, timeout + 1):
+                currentStatus = self.getSessionStatus(protocol)
+                self.ixnObj.logInfo('\n%s' % protocol, timestamp=False)
+                self.ixnObj.logInfo('\tTotal sessions: %d' % len(currentStatus), timestamp=False)
+                totalDownSessions = 0
+                for eachStatus in currentStatus:
+                    if eachStatus != 'up':
+                        totalDownSessions += 1
+                self.ixnObj.logInfo('\tTotal sessions Down: %d' % totalDownSessions, timestamp=False)
+                self.ixnObj.logInfo('\tCurrentStatus: %s' % currentStatus, timestamp=False)
+
+                if timer < timeout and [element for element in sessionDownList
+                                        if element in currentStatus] == []:
+                    self.ixnObj.logInfo('Protocol sessions are all up')
+                    break
+
+                if timer < timeout and [element for element in sessionDownList
+                                        if element in currentStatus] != []:
+                    self.ixnObj.logInfo('\tWait %d/%d seconds' % (timer, timeout), timestamp=False)
+                    time.sleep(1)
+                    continue
+
+                if timer == timeout and [element for element in sessionDownList
+                                         if element in currentStatus] != []:
+                    raise IxNetRestApiException('\nError: Protocols failed')
+        else:
             return
-
-        for timer in range(1, timeout + 1):
-            currentStatus = self.getSessionStatus(protocol)
-            self.ixnObj.logInfo('\n%s' % protocol, timestamp=False)
-            self.ixnObj.logInfo('\tTotal sessions: %d' % len(currentStatus), timestamp=False)
-            totalDownSessions = 0
-            for eachStatus in currentStatus:
-                if eachStatus != 'up':
-                    totalDownSessions += 1
-            self.ixnObj.logInfo('\tTotal sessions Down: %d' % totalDownSessions, timestamp=False)
-            self.ixnObj.logInfo('\tCurrentStatus: %s' % currentStatus, timestamp=False)
-
-            if timer < timeout and [element for element in sessionDownList
-                                    if element in currentStatus] == []:
-                self.ixnObj.logInfo('Protocol sessions are all up')
-                break
-
-            if timer < timeout and [element for element in sessionDownList
-                                    if element in currentStatus] != []:
-                self.ixnObj.logInfo('\tWait %d/%d seconds' % (timer, timeout), timestamp=False)
-                time.sleep(1)
-                continue
-
-            if timer == timeout and [element for element in sessionDownList
-                                     if element in currentStatus] != []:
-                raise IxNetRestApiException('\nError: Protocols failed')
 
     def verifyAllProtocolSessionsNgpf(self, timeout=120, silentMode=False):
         """
@@ -1931,22 +1954,41 @@ class Protocol(object):
            silentMode: <bool>: True to not display less on the terminal.  False for debugging
            purpose.
         """
-        l2ProtocolList = ['isisL3', 'lacp', 'mpls']
-        l3ProtocolList = ['ancp', 'bfdv4Interface', 'bgpIpv4Peer', 'bgpIpv6Peer',
-                          'dhcpv4relayAgent', 'dhcpv6relayAgent', 'geneve', 'greoipv4',
-                          'greoipv6', 'igmpHost', 'igmpQuerier', 'lac', 'ldpBasicRouter',
-                          'ldpBasicRouterV6', 'ldpConnectedInterface', 'ldpv6ConnectedInterface',
-                          'ldpTargetedRouter', 'ldpTargetedRouterV6', 'lns', 'mldHost',
-                          'mldQuerier', 'ptp', 'ipv6sr', 'openFlowController', 'openFlowSwitch',
-                          'ospfv2', 'ospfv3', 'ovsdbcontroller', 'ovsdbserver', 'pcc', 'pce',
-                          'pcepBackupPCEs', 'pimV4Interface', 'pimV6Interface', 'ptp', 'rsvpteIf',
-                          'rsvpteLsps', 'tag', 'vxlan']
-
-        for protocol in l2ProtocolList:
-            self.verifyAllProtocolSessionsInternal(protocol)
-
-        for protocol in l3ProtocolList:
-            self.verifyAllProtocolSessionsInternal(protocol)
+        l2ProtocolList = ['IsisL3', 'Lacp', 'Mpls']
+        ipv4ProtocolList = ['Ancp', 'Bfdv4Interface', 'BgpIpv4Peer', 'Dhcpv4relayAgent', 'Dhcpv4server', 'ECpriRe',
+                            'ECpriRec', 'Geneve', 'Greoipv4', 'IgmpHost', 'IgmpQuerier', 'Lac', 'LdpBasicRouter',
+                            'LdpConnectedInterface', 'Lns', 'Pcc', 'LdpTargetedRouter', 'MplsOam', 'NetconfClient',
+                            'NetconfServer', 'Ntpclock', 'Ospfv2',  'OpenFlowController', 'OpenFlowSwitch',
+                            'Ovsdbcontroller', 'Ovsdbserver', 'Pce', 'PimV4Interface', 'Ptp',
+                            'RsvpteIf', 'RsvpteLsps', 'Tag', 'Vxlan']
+        ipv6ProtocolList = ['Bfdv6Interface', 'BgpIpv6Peer', 'Dhcpv6relayAgent', 'Dhcpv6server', 'Greoipv6', 'Ipv6sr',
+                            'LdpBasicRouterV6', 'Ldpv6ConnectedInterface', 'LdpTargetedRouterV6', 'MldHost', 'ptp',
+                            'MldQuerier', 'ipv6sr', 'Ntpclock', 'Ospfv3', 'PimV6Interface', 'Ptp', 'Tag', 'Vxlanv6']
+        time.sleep(30)
+        for topology in self.ixNetwork.Topology.find():
+            # deviceGroupList = topology.DeviceGroup.find()
+            for deviceGroup in topology.DeviceGroup.find():
+                enabledMultivalue = deviceGroup.Enabled
+                response = self.ixnObj.getMultivalueValues(enabledMultivalue, silentMode=silentMode)
+                self.ixnObj.logInfo('DeviceGroup is enabled: %s' % response)
+                if 'false' in response:
+                    continue
+                for ethernet in deviceGroup.Ethernet.find():
+                    for protocol in l2ProtocolList:
+                        if getattr(ethernet, protocol).find():
+                            self.verifyAllProtocolSessionsInternal(getattr(ethernet, protocol).find())
+                    ipv4List = ethernet.Ipv4.find()
+                    ipv6List = ethernet.Ipv6.find()
+                    if ipv4List:
+                        for eachIpv4Obj in ipv4List:
+                            for protocol in ipv4ProtocolList:
+                                if getattr(eachIpv4Obj, protocol).find():
+                                    self.verifyAllProtocolSessionsInternal(getattr(eachIpv4Obj, protocol).find())
+                    if ipv6List:
+                        for eachIpv6Obj in ipv4List:
+                            for protocol in ipv6ProtocolList:
+                                if getattr(eachIpv6Obj, protocol).find():
+                                    self.verifyAllProtocolSessionsInternal(getattr(eachIpv6Obj, protocol).find())
 
     def getIpObjectsByTopologyObject(self, topologyObj, ipType='ipv4'):
         """
@@ -2015,7 +2057,7 @@ class Protocol(object):
         Returns
             A list of ports: [('192.168.70.10', '1', '1') ('192.168.70.10', '1', '2')]
         """
-        portList = topologyObj.ports
+        portList = topologyObj.Ports
         return portList
 
     def sendArpNgpf(self, ipv4ObjList):
@@ -2811,51 +2853,58 @@ class Protocol(object):
             'bgpIpv4Peer')
 
         """
-        l3ProtocolList = ['ancp', 'bfdv4Interface', 'bgpIpv4Peer', 'bgpIpv6Peer',
-                          'dhcpv4relayAgent', 'dhcpv6relayAgent', 'geneve', 'greoipv4',
-                          'greoipv6', 'igmpHost', 'igmpQuerier', 'lac', 'ldpBasicRouter',
-                          'ldpBasicRouterV6', 'ldpConnectedInterface', 'ldpv6ConnectedInterface',
-                          'ldpTargetedRouter', 'ldpTargetedRouterV6', 'lns', 'mldHost',
-                          'mldQuerier', 'ptp', 'ipv6sr', 'openFlowController', 'openFlowSwitch',
-                          'ospfv2', 'ospfv3', 'ovsdbcontroller', 'ovsdbserver', 'pcc', 'pce',
-                          'pcepBackupPCEs', 'pimV4Interface', 'pimV6Interface', 'ptp', 'rsvpteIf',
-                          'rsvpteLsps', 'tag', 'vxlan']
+        # l3ProtocolList = ['ancp', 'bfdv4Interface', 'bgpIpv4Peer', 'bgpIpv6Peer',
+        #                   'dhcpv4relayAgent', 'dhcpv6relayAgent', 'geneve', 'greoipv4',
+        #                   'greoipv6', 'igmpHost', 'igmpQuerier', 'lac', 'ldpBasicRouter',
+        #                   'ldpBasicRouterV6', 'ldpConnectedInterface', 'ldpv6ConnectedInterface',
+        #                   'ldpTargetedRouter', 'ldpTargetedRouterV6', 'lns', 'mldHost',
+        #                   'mldQuerier', 'ptp', 'ipv6sr', 'openFlowController', 'openFlowSwitch',
+        #                   'ospfv2', 'ospfv3', 'ovsdbcontroller', 'ovsdbserver', 'pcc', 'pce',
+        #                   'pcepBackupPCEs', 'pimV4Interface', 'pimV6Interface', 'ptp', 'rsvpteIf',
+        #                   'rsvpteLsps', 'tag', 'vxlan']
+
+        ipv4ProtocolList = ['Ancp', 'Bfdv4Interface', 'BgpIpv4Peer', 'Dhcpv4relayAgent', 'Dhcpv4server', 'ECpriRe',
+                            'ECpriRec', 'Geneve', 'Greoipv4', 'IgmpHost', 'IgmpQuerier', 'Lac', 'LdpBasicRouter',
+                            'LdpConnectedInterface', 'Lns', 'Pcc', 'LdpTargetedRouter', 'MplsOam', 'NetconfClient',
+                            'NetconfServer', 'Ntpclock', 'Ospfv2', 'OpenFlowController', 'OpenFlowSwitch',
+                            'Ovsdbcontroller', 'Ovsdbserver', 'Pce', 'PimV4Interface', 'Ptp',
+                            'RsvpteIf', 'RsvpteLsps', 'Tag', 'Vxlan']
+        ipv6ProtocolList = ['Bfdv6Interface', 'BgpIpv6Peer', 'Dhcpv6relayAgent', 'Dhcpv6server', 'Greoipv6', 'Ipv6sr',
+                            'LdpBasicRouterV6', 'Ldpv6ConnectedInterface', 'LdpTargetedRouterV6', 'MldHost', 'ptp',
+                            'MldQuerier', 'ipv6sr', 'Ntpclock', 'Ospfv3', 'PimV6Interface', 'Ptp', 'Tag', 'Vxlanv6']
 
         outputDict = {'topology': "", 'deviceGroup': []}
 
         if port is not None and portName is None:
-            portName = str(port[1]) + '/' + str(port[2])
+            # portName = str(port[1]) + '/' + str(port[2])
+            portName = "Port" + str(port[1]) + '_' + str(port[2])
 
         for topology in self.ixNetwork.Topology.find():
             if self.ixNetwork.Vport.find(Name=portName).href in topology.Vports:
                 devGrpList = topology.DeviceGroup.find()
-                outputDict['topology'] = topology.href
+                outputDict['topology'] = topology
                 break
 
         for devGrpObj in devGrpList:
-            outPutList = []
-            for currentProtocol in l3ProtocolList:
-                currentProtocol = currentProtocol[0].capitalize() + currentProtocol[1:]
-                try:
-                    ethernetResponse = getattr(devGrpObj, 'Ethernet')
-                    if ethernetResponse.find():
-                        outPutList.append(ethernetResponse.find().href)
-                    ipv4Response = getattr(ethernetResponse.find(), 'Ipv4')
-                    if ipv4Response.find():
-                        outPutList.append(ipv4Response.find().href)
-                        currentProtocolResponse = getattr(ipv4Response.find(), currentProtocol)
-                        if currentProtocolResponse.find():
-                            outPutList.append(currentProtocolResponse.find().href)
-                    ipv6Response = getattr(ethernetResponse.find(), 'Ipv6')
-                    if ipv6Response.find():
-                        outPutList.append(ipv6Response.find().href)
-                        currentProtocolResponse = getattr(ipv6Response.find(), currentProtocol)
-                        if currentProtocolResponse.find():
-                            outPutList.append(currentProtocolResponse.find().href)
-                except Exception as e:
-                    print(e)
-                    pass
-            if outPutList != []:
+            outPutList = [devGrpObj]
+            if getattr(devGrpObj, 'Ethernet').find():
+                for ethernet in devGrpObj.Ethernet.find():
+                    outPutList.append(ethernet)
+                    ipv4List = ethernet.Ipv4.find()
+                    ipv6List = ethernet.Ipv6.find()
+                    if ipv4List:
+                        for eachIpv4Obj in ipv4List:
+                            outPutList.append(eachIpv4Obj)
+                            for protocol in ipv4ProtocolList:
+                                if getattr(eachIpv4Obj, protocol).find():
+                                    outPutList.append(getattr(eachIpv4Obj, protocol).find())
+                    if ipv6List:
+                        for eachIpv6Obj in ipv4List:
+                            outPutList.append(eachIpv6Obj)
+                            for protocol in ipv6ProtocolList:
+                                if getattr(eachIpv6Obj, protocol).find():
+                                    outPutList.append(getattr(eachIpv6Obj, protocol).find())
+            if outPutList:
                 outputDict['deviceGroup'].append(outPutList)
         return outputDict
 
@@ -3109,51 +3158,40 @@ class Protocol(object):
         Returns
             The protocol object handle in a list.
         """
-        protoReturnList = []
-        protocol = protocol[0:1].capitalize() + protocol[1:]
-        if deviceGroupName is None:
-            topoObjList = self.getAllTopologyList()
-            for topoObj in topoObjList:
-                deviceGroupList = topoObj.DeviceGroup.find()
-                for deviceGroupObj in deviceGroupList:
-                    try:
-                        ipv4ProtocolResponse = getattr(deviceGroupObj.Ethernet.find().Ipv4.find(),
-                                                       protocol)
-                        if ipv4ProtocolResponse.find():
-                            protoObj = ipv4ProtocolResponse.find()
-                            protoReturnList.append(protoObj)
-
-                        ipv6ProtocolResponse = getattr(deviceGroupObj.Ethernet.find().Ipv6.find(),
-                                                       protocol)
-                        if ipv6ProtocolResponse.find():
-                            protoObj = ipv6ProtocolResponse.find()
-                            protoReturnList.append(protoObj)
-                        l2ProtocolResponse = getattr(deviceGroupObj.Ethernet.find(), protocol)
-                        if l2ProtocolResponse.find():
-                            protoObj = l2ProtocolResponse.find()
-                            protoReturnList.append(protoObj)
-                    except Exception as e:
-                        print(e)
-                        if deviceGroupObj.Ethernet.find():
-                            protoObj = deviceGroupObj.Ethernet.find()
-                            protoReturnList.append(protoObj)
-        else:
-            ethernetObj = self.ixNetwork.Topology.find().DeviceGroup.find(
-                Name=deviceGroupName).Ethernet.find()
-            ipv4ProtocolResponse = getattr(ethernetObj.Ipv4.find(), protocol)
-            if ipv4ProtocolResponse.find():
-                protoObj = ipv4ProtocolResponse.find()
-                protoReturnList.append(protoObj)
-            ipv6ProtocolResponse = getattr(ethernetObj.Ipv6.find(), protocol)
-            if ipv6ProtocolResponse.find():
-                protoObj = ipv6ProtocolResponse.find()
-                protoReturnList.append(protoObj)
-            l2ProtocolResponse = getattr(ethernetObj, protocol)
-            if l2ProtocolResponse.find():
-                protoObj = l2ProtocolResponse.find()
-                protoReturnList.append(protoObj)
-
-        return protoReturnList
+        protocolObjectHandleList = []
+        for protocols in protocolList:
+            if protocol in ['deviceGroup', 'ethernet', 'ipv4', 'ipv6']:
+                for endpointObj in protocols:
+                    if protocol == 'deviceGroup':
+                        match = re.search(
+                            r'(/api/v1/sessions/[0-9]+/ixnetwork/topology/[0-9]+/deviceGroup/[0-9]+)$', endpointObj.href)
+                        if match:
+                            # A topology could have multiple Device Groups. Filter by the Device Group name.
+                            if deviceGroupName:
+                                if deviceGroupName == endpointObj.Name:
+                                    return [endpointObj]
+                            else:
+                                protocolObjectHandleList.append(endpointObj)
+                    match = re.search(
+                        r'(/api/v1/sessions/[0-9]+/ixnetwork/topology/[0-9]+/deviceGroup/[0-9]+).*/%s/[0-9]+$' % protocol,
+                        endpointObj.href)
+                    if match:
+                        # A topology could have multiple Device Groups. Filter by the Device Group name.
+                        if deviceGroupName:
+                            deviceGroupObj = match.group(1)
+                            devGrpObj = self.ixNetwork.Topology.find().DeviceGroup.find(Name=deviceGroupName)
+                            if devGrpObj.href == deviceGroupObj:
+                                return [endpointObj]
+                        else:
+                            protocolObjectHandleList.append(endpointObj)
+            else:
+                # import pdb;
+                # pdb.set_trace()
+                if any(protocol in x.href for x in protocols):
+                    index = [index for index, item in enumerate(protocols) if protocol in item.href]
+                    protocolObjectHandle = protocols[index[0]]
+                    protocolObjectHandleList.append(protocolObjectHandle)
+        return protocolObjectHandleList
 
     def getProtocolObjFromHostIp(self, topologyList, protocol):
         """
@@ -4660,7 +4698,7 @@ class Protocol(object):
         if 'gateway' in kwargs:
             gatewayObj = ipv6Obj.find().GatewayIp
             self.ixnObj.logInfo(
-                'Configure IPv6 gateway. Attribute for multivalueId = jsonResponse["gatewayIp"]')
+                'Configure IPv6 gateway. Attribute for multivalueId = gatewayObj')
             multivalueType = 'counter'
             data = kwargs['gateway']
             if 'gatewayMultivalueType' in kwargs:

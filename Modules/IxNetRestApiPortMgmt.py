@@ -139,7 +139,7 @@ class PortMgmt(object):
             for i in range(1, len(portList) + 1):
                 createdVportList.append(self.ixNetwork.Vport.add())
             if createdVportList == []:
-                raise Exception("Uable to create vports")
+                raise Exception("Unable to create vports")
             return createdVportList
         else:
             raise Exception("Please pass the portlist")
@@ -248,10 +248,6 @@ class PortMgmt(object):
             port = [chassisIp, cardNum, portNum]
             if port in portList:
                 vportList.append(vport)
-
-        if not vportList:
-            raise Exception("Unable to find vport for the given portList {} ".format(portList))
-
         return vportList
 
     def getPhysicalPortsFromCreatedVports(self):
@@ -360,6 +356,13 @@ class PortMgmt(object):
                 card = port.split(':')[1]
                 port = port.split(':')[2]
                 vportObj.Name = 'Port' + card + '_' + port
+        if rawTraffic:
+            vportProtocolList = []
+            for vport in self.getAllVportList():
+                vportProtocolList.append(vport.Protocols.find())
+            return vportProtocolList
+        else:
+            return vportList
 
     def unassignPorts(self, deleteVirtualPorts=False):
         """
@@ -394,7 +397,6 @@ class PortMgmt(object):
             portList: <list>: A list of ports in a list, to release in format of...
                       [[ixChassisIp, str(cardNum), str(portNum)], [], [] ...]
         """
-
         self.ixnObj.logInfo('Release selected ports {} from configuration'.format(portList))
         vportList = self.getVports(portList)
         for vport in vportList:
